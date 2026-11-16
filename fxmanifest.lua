@@ -27,6 +27,7 @@ server_scripts {
     'resource/sv_admins.lua',
     'resource/sv_logger.lua',
     'resource/sv_atlas_logger.lua',
+    'resource/sv_dbstatus.lua',
     'resource/sv_resources.lua',
     'resource/sv_playerlist.lua',
     'resource/sv_ctx.lua',
