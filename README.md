@@ -1,6 +1,6 @@
 <div align="center">
   <h1>⚡ atAdmin</h1>
-  <p><strong>An enhanced txAdmin fork — customized for the VMP.ir platform.</strong></p>
+  <p><strong>An enhanced txAdmin fork — Made With ❤️ for the VMP.ir platform.</strong></p>
   <p>
     <strong>Anti-Backdoor Protection</strong> · <strong>Advanced Server Logs</strong> · <strong>Built-in Database (DBEngine)</strong> · <strong>Resource Monitoring</strong>
   </p>
