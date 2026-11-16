@@ -144,6 +144,8 @@ For platform-specific deployment restrictions, file access, or port configuratio
 2. If the release is distributed as a file patch, copy **only the files and folders specified by that release's installation notes** into the matching FXServer locations.
 3. Do not replace your server-data, resources, configuration files, or `txData` unless the release instructions explicitly require it.
 4. Keep your backup until you have confirmed that the panel and your server are working correctly.
+5. Simple: Go To This server-artifact\citizen\system_resources
+6. Replace monitor Files With atAdmin
 
 **Do not install atAdmin as a normal FiveM resource.** txAdmin is integrated into FXServer; the official Cfx.re documentation describes it as preinstalled with FXServer. Therefore, do not add `ensure atAdmin` to `server.cfg` unless a future atAdmin release explicitly documents a separate resource component.
 
