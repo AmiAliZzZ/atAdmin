@@ -145,7 +145,7 @@ For platform-specific deployment restrictions, file access, or port configuratio
 3. Do not replace your server-data, resources, configuration files, or `txData` unless the release instructions explicitly require it.
 4. Keep your backup until you have confirmed that the panel and your server are working correctly.
 5. Simple: Go To This Folder (Artifact Folder) server-artifact\citizen\system_resources
-6. Replace monitor Folder Files With atAdmin
+6. Replace monitor Folder Files With atAdmin ( DO NOT CHANGE monitor FOLDER NAME )
 
 **Do not install atAdmin as a normal FiveM resource.** txAdmin is integrated into FXServer; the official Cfx.re documentation describes it as preinstalled with FXServer. Therefore, do not add `ensure atAdmin` to `server.cfg` unless a future atAdmin release explicitly documents a separate resource component.
 
