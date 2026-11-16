@@ -452,6 +452,146 @@ if(b.action==="unwhitelist"){AB.settings.whitelist=AB.settings.whitelist.filter(
 return ctx.send({error:"unknown action"})});
 router.get("/antiBackdoor/resources",webAuthMw,async ctx=>{const o={};if(AB.settings.showInResources)for(const r of Object.values(AB.results))if(r.score>=AB.settings.alertThreshold&&!AB.settings.whitelist.includes(r.name))o[r.name]={score:r.score,severity:r.severity,reasons:r.reasons.map(x=>x.name+" ("+x.file+":"+x.line+")")};return ctx.send(o)});
 }catch(e){console.error("[AntiBackdoor] init failed",e)}})();
+;(function(){try{
+const fs=require("node:fs"),path=require("node:path");
+const DBEngine=require("./dbengine.js");
+let DB=null;
+const lg=(l,m)=>{try{(l==="error"?console.error:console.log)("[DBEngine] "+m)}catch(e){}};
+const perm=ctx=>ctx.admin.hasPermission("all_permissions");
+const dataDir=()=>path.join(globals.configVault.serverProfilePath,"dbengine");
+const db=()=>{if(!DB)DB=new DBEngine(dataDir(),{log:lg}).load();return DB};
+/* ---------- MySQL protocol server (lets oxmysql connect to DBEngine on host:port) ---------- */
+const MySQLServer=require("./mysqlserver.js");
+let SRV=null;
+const lg2=(l,m)=>{try{const c=l==="error"?"\x1b[31m":l==="warn"?"\x1b[33m":/listening/.test(m)?"\x1b[32m":"";(l==="error"?console.error:l==="warn"?console.warn:console.log)(c+"[DBEngine] "+(/listening/.test(m)?"MySQL server status: LISTENING - ":(l==="error"?"MySQL server status: ERROR - ":""))+m+(c?"\x1b[0m":""))}catch(e){}};
+(function bootSrv(){
+ try{
+  if(typeof globals==="undefined"||!globals||!globals.configVault||!globals.configVault.serverProfilePath)return void setTimeout(bootSrv,300);
+  const d=db();
+  SRV=new MySQLServer(d,{log:lg2});
+  SRV.start();
+  setInterval(()=>{try{SRV.sync()}catch(e){}},3000);
+  process.on("exit",()=>{try{d.shutdown()}catch(e){}});
+  setTimeout(()=>{try{const c=cfgStatus();if(c.exists&&!c.matches)lg2("warn","server.cfg "+(c.hasVar?"has a different":"has no")+" "+cfgVar(d)+" than the DBEngine settings. If you want oxmysql to use DBEngine, open Database > Settings and press Apply to server.cfg (a backup is kept). Ignore this if you use an external MySQL.")}catch(e){}},15000);
+ }catch(e){lg2("error","MySQL protocol server init failed: "+(e&&e.message||e));setTimeout(bootSrv,5000)}
+})();
+const bool=v=>v===true||v==="1"||v==="true"||v===1;
+const MAXROWS=5000;
+
+/* ---------- server.cfg helpers ---------- */
+const cfgFile=()=>{try{const c=globals.fxRunner&&globals.fxRunner.config;if(!c||!c.cfgPath)return null;
+ if(typeof resolveCFGFilePath==="function")return resolveCFGFilePath(c.cfgPath,c.serverDataPath);
+ return path.isAbsolute(c.cfgPath)?path.normalize(c.cfgPath):path.resolve(c.serverDataPath||".",c.cfgPath)}catch(e){return null}};
+const cfgVar=d=>d.settings.cfgVar||"mysql_connection_string";
+function cfgStatus(){const d=db(),f=cfgFile();const o={file:f,exists:false,hasVar:false,matches:false};
+ if(!f)return o;try{if(!fs.existsSync(f))return o;o.exists=true;const t=fs.readFileSync(f,"utf8");
+ const m=new RegExp("^[ \\t]*(?:set|setr|sets)[ \\t]+"+cfgVar(d)+"\\b.*$","mi").exec(t);
+ o.hasVar=!!m;o.matches=!!m&&m[0].trim()===d.cfgLine()}catch(e){}return o}
+function cfgApply(){const d=db(),f=cfgFile();
+ if(!f)throw new Error("The server.cfg path is not configured in txAdmin yet (finish the Setup / Settings first).");
+ if(!fs.existsSync(f))throw new Error("server.cfg not found: "+f);
+ const text=fs.readFileSync(f,"utf8");const r=DBEngine.applyCfg(text,d.cfgLine(),cfgVar(d));
+ if(r.changed){const bak=f+".dbengine.bak";if(!fs.existsSync(bak))fs.writeFileSync(bak,text);fs.writeFileSync(f,r.text)}
+ d.settings.cfgInitDone=true;d.saveMeta();
+ return{changed:r.changed,replaced:r.replaced,cfg:cfgStatus()}}
+
+/* ---------- helpers ---------- */
+const slim=res=>(res||[]).map(r=>{if(r&&r.type==="rows"){const total=r.rows.length;
+ if(total>MAXROWS)return{...r,rows:r.rows.slice(0,MAXROWS),total,truncated:true};return{...r,total}}return r});
+const errOut=e=>{const o={error:String(e&&e.message||e)};
+ if(e&&e.statementIndex){o.statementIndex=e.statementIndex;o.results=slim(e.results)}
+ if(e&&e.rolledBack)o.rolledBack=true;return o};
+const guard=fn=>async ctx=>{if(!perm(ctx))return ctx.send({error:"no permission"});
+ try{return await fn(ctx,db(),ctx.request.body||{})}catch(e){return ctx.send(errOut(e))}};
+const parseJ=(s,def)=>{try{const v=JSON.parse(s);return v==null?def:v}catch(e){return def}};
+const overview=d=>{const o=d.overview();o.cfg=cfgStatus();o.cfgLine=d.cfgLine();o.srv=SRV?SRV.status():null;return o};
+
+/* ---------- pages ---------- */
+router.get("/legacy/database",webAuthMw,async ctx=>{
+ if(!perm(ctx))return ctx.utils.render("main/message",{message:"You don't have permission to view this page."});
+ return ctx.utils.render("main/database",{headerTitle:"Database"})});
+router.get("/database/data",apiAuthMw,guard(async(ctx,d)=>ctx.send(overview(d))));
+
+/* ---------- query ---------- */
+router.post("/database/query",apiAuthMw,guard(async(ctx,d,b)=>{
+ const sql=String(b.sql||"");if(!sql.trim())return ctx.send({error:"Empty query"});
+ if(sql.length>5e6)return ctx.send({error:"Query too large - use the Import tab"});
+ const atomic=bool(b.atomic),cont=bool(b.cont);const snap=atomic?d.snapshot():null;
+ try{const res=d.exec(sql,[],{continueOnError:cont});
+  if(atomic&&res.some(x=>x.type==="error")){d.restore(snap);return ctx.send({results:slim(res),rolledBack:true})}
+  return ctx.send({results:slim(res)})}
+ catch(e){if(atomic&&snap){d.restore(snap);e.rolledBack=true}throw e}}));
+
+/* ---------- browse / row edit ---------- */
+router.post("/database/browse",apiAuthMw,guard(async(ctx,d,b)=>ctx.send(d.browse(String(b.table||""),
+ {page:b.page,size:b.size,sort:b.sort,dir:b.dir,search:b.search,searchCol:b.searchCol}))));
+router.post("/database/row",apiAuthMw,guard(async(ctx,d,b)=>{
+ const op=String(b.op||""),t=String(b.table||"");
+ const r=d.rowOp(t,op,{values:parseJ(b.values,{}),rid:b.rid,rids:parseJ(b.rids,[])});
+ return ctx.send(r)}));
+
+/* ---------- import (chunked) ---------- */
+const UP=new Map();
+setInterval(()=>{const now=Date.now();for(const[k,v]of UP)if(now-v.ts>600000)UP.delete(k)},60000);
+router.post("/database/import",apiAuthMw,guard(async(ctx,d,b)=>{
+ const id=String(b.id||"");if(!/^[\w]{4,40}$/.test(id))return ctx.send({error:"Bad upload id"});
+ const idx=Number(b.idx),total=Number(b.total);
+ if(!Number.isInteger(idx)||!Number.isInteger(total)||total<1||total>4000||idx<0||idx>=total)return ctx.send({error:"Bad chunk"});
+ let u=UP.get(id);if(!u){if(idx!==0)return ctx.send({error:"Upload expired - try again"});u={parts:[],ts:0};UP.set(id,u)}
+ if(idx!==u.parts.length)return ctx.send({error:"Chunk out of order"});
+ u.parts.push(String(b.chunk||""));u.ts=Date.now();
+ if(idx<total-1)return ctx.send({ok:true});
+ UP.delete(id);
+ const text=Buffer.concat(u.parts.map(p=>Buffer.from(p,"base64"))).toString("utf8").replace(/^\uFEFF/,"");
+ const o=parseJ(b.opts,{});const t0=Date.now();let result;
+ if(o.type==="json"){result=d.importJSON(text,{mode:o.mode,table:o.table});result.kind="json"}
+ else if(o.type==="csv"){result=d.importCSV(text,{table:o.table,delimiter:o.delimiter,header:o.header!==false,truncate:!!o.truncate,mode:o.mode});result.kind="csv"}
+ else{result=d.runScript(text,{atomic:!!o.atomic,continueOnError:!!o.cont,cont:!!o.cont});result.kind="sql"}
+ result.ms=Date.now()-t0;d.flush();
+ return ctx.send({ok:true,result})}));
+
+/* ---------- export ---------- */
+router.get("/database/export",webAuthMw,async ctx=>{
+ if(!perm(ctx))return ctx.send({error:"no permission"});
+ try{const d=db(),q=ctx.request.query||{};const f=String(q.format||"sql");
+  const names=q.tables?String(q.tables).split(",").map(s=>s.trim()).filter(Boolean):null;
+  const stamp=new Date().toISOString().replace(/[:T]/g,"-").slice(0,19);const base=d.settings.dbName+"_"+stamp;
+  let body,type,ext;
+  if(f==="json"){body=d.dumpJSON({tables:names,data:bool(q.data??"1"),pretty:bool(q.pretty)});type="application/json";ext="json"}
+  else if(f==="csv"){if(!names||!names.length)throw new Error("Choose a table");body=d.dumpCSV(names[0],{delimiter:q.delimiter,header:q.header!=="0",bom:bool(q.bom)});type="text/csv";ext="csv";
+   ctx.set("Content-Disposition",'attachment; filename="'+names[0].replace(/[^\w.\-]/g,"_")+'.csv"')}
+  else{body=d.dumpSQL({tables:names,structure:q.structure!=="0",data:q.data!=="0",drop:bool(q.drop),ifNotExists:bool(q.ine)});type="application/sql";ext="sql"}
+  if(!ctx.response.get("Content-Disposition"))ctx.set("Content-Disposition",'attachment; filename="'+base+"."+ext+'"');
+  ctx.set("Cache-Control","no-store");ctx.type=type;ctx.body=body}
+ catch(e){ctx.status=400;ctx.body=String(e&&e.message||e)}});
+
+/* ---------- backups ---------- */
+router.post("/database/backup",apiAuthMw,guard(async(ctx,d,b)=>{
+ const a=String(b.action||"");
+ if(a==="list")return ctx.send({backups:d.backupList()});
+ if(a==="create"){d.flush();return ctx.send({ok:true,name:d.backupCreate(String(b.label||"manual"))})}
+ if(a==="delete"){d.backupDelete(String(b.name||""));return ctx.send({ok:true})}
+ if(a==="restore"){const r=d.backupRestore(String(b.name||""));d.flush();return ctx.send({ok:true,result:r})}
+ return ctx.send({error:"unknown action"})}));
+
+/* ---------- settings / server.cfg / danger ---------- */
+router.post("/database/settings",apiAuthMw,guard(async(ctx,d,b)=>{
+ d.updateSettings(parseJ(b.json,{}));return ctx.send({ok:true,cfg:cfgStatus()})}));
+router.post("/database/cfg",apiAuthMw,guard(async(ctx,d)=>ctx.send({ok:true,...cfgApply()})));
+router.post("/database/danger",apiAuthMw,guard(async(ctx,d,b)=>{
+ if(b.action==="flush"){d.flush();return ctx.send({ok:true})}
+ if(b.action==="wipe"){if(String(b.confirm||"")!==d.settings.dbName)return ctx.send({error:"Confirmation text does not match"});
+  d.flush();d.backupCreate("pre-wipe");d.wipeAll();d.flush();return ctx.send({ok:true})}
+ return ctx.send({error:"unknown action"})}));
+
+/* ---------- background jobs ---------- */
+setTimeout(()=>{try{db();lg("log","internal database ready ("+dataDir()+")")}catch(e){lg("error","init failed: "+(e&&e.message||e))}},1500);
+setInterval(()=>{try{const d=db();
+ if(!d.settings.cfgInitDone){const f=cfgFile();if(f&&fs.existsSync(f)){const r=cfgApply();lg("log","first run: database info "+(r.changed?"written to":"already in")+" server.cfg ("+f+")")}}
+ d.tickBackup()}catch(e){}},15000);
+const bye=()=>{try{if(DB)DB.shutdown()}catch(e){}};
+process.on("exit",bye);
+}catch(e){console.error("[DBEngine] init failed",e)}})();
 router.get("/legacy/adminManager",webAuthMw,AdminManagerPage);router.get("/legacy/advanced",webAuthMw,AdvancedPage);router.get("/legacy/cfgEditor",webAuthMw,CFGEditorPage);router.get("/legacy/diagnostics",webAuthMw,Diagnostics);router.get("/legacy/masterActions",webAuthMw,MasterActionsPage);router.get("/legacy/resources",webAuthMw,Resources);router.get("/legacy/serverLog",webAuthMw,ServerLog);router.get("/legacy/settings",webAuthMw,SettingsPage);router.get("/legacy/whitelist",webAuthMw,WhitelistPage);router.get("/legacy/setup",webAuthMw,SetupGet);router.get("/legacy/deployer",webAuthMw,DeployerStepper);router.get("/auth/self",apiAuthMw,AuthSelf);router.post("/auth/password",authLimiter,AuthVerifyPassword);router.post("/auth/logout",authLimiter,AuthLogout);router.post("/auth/addMaster/pin",authLimiter,AuthAddMasterPin);router.post("/auth/addMaster/callback",authLimiter,AuthAddMasterCallback);router.post("/auth/addMaster/save",authLimiter,AuthAddMasterSave);router.get("/auth/cfxre/redirect",authLimiter,AuthProviderRedirect);router.post("/auth/cfxre/callback",authLimiter,AuthProviderCallback);router.post("/auth/changePassword",apiAuthMw,AuthChangePassword);router.get("/auth/getIdentifiers",apiAuthMw,AuthGetIdentifiers);router.post("/auth/changeIdentifiers",apiAuthMw,AuthChangeIdentifiers);router.post("/adminManager/getModal/:modalType",webAuthMw,AdminManagerGetModal);router.post("/adminManager/:action",apiAuthMw,AdminManagerActions);router.post("/setup/:action",apiAuthMw,SetupPost);router.get("/deployer/status",apiAuthMw,DeployerStatus);router.post("/deployer/recipe/:action",apiAuthMw,DeployerActions);router.post("/settings/save/:scope",apiAuthMw,SettingsSave);router.get("/settings/banTemplates",apiAuthMw,GetBanTemplates);router.post("/settings/banTemplates",apiAuthMw,SaveBanTemplates);router.get("/masterActions/backupDatabase",webAuthMw,MasterActionsGet);router.post("/masterActions/:action",apiAuthMw,MasterActionsAction);router.post("/fxserver/controls",apiAuthMw,FXServerControls);router.post("/fxserver/commands",apiAuthMw,FXServerCommands);router.get("/fxserver/downloadLog",webAuthMw,FXServerDownloadLog);router.post("/fxserver/schedule",apiAuthMw,FXServerSchedule);router.post("/cfgEditor/save",apiAuthMw,CFGEditorSave);router.post("/intercom/:scope",intercomAuthMw,Intercom);router.post("/diagnostics/sendReport",apiAuthMw,SendDiagnosticsReport);router.post("/advanced",apiAuthMw,AdvancedActions);router.get("/serverLog/partial",apiAuthMw,ServerLogPartial);router.get("/systemLog/:scope",apiAuthMw,SystemLogs);router.get("/perfChartData/:thread",apiAuthMw,perfChart);router.get("/playerDropsData",apiAuthMw,playerDrops);router.get("/history/stats",apiAuthMw,HistoryStats);router.get("/history/search",apiAuthMw,HistorySearch);router.get("/history/action",apiAuthMw,HistoryActionModal);router.post("/history/:action",apiAuthMw,HistoryActions);router.get("/player",apiAuthMw,PlayerModal);router.get("/player/stats",apiAuthMw,PlayersStats);router.get("/player/search",apiAuthMw,PlayerSearch);router.post("/player/checkJoin",intercomAuthMw,PlayerCheckJoin);router.post("/player/:action",apiAuthMw,PlayerActions);router.get("/whitelist/:table",apiAuthMw,WhitelistList);router.post("/whitelist/:table/:action",apiAuthMw,WhitelistActions);if(convars.isDevMode){router.get("/dev/:scope",get3);router.post("/dev/:scope",post)};return router};var modulename99="WebServer:TopLevelMw";var console103=console_default(modulename99);var maxTokens=20;var tokensPerInterval=5;var availableTokens=maxTokens;var suppressedErrors=0;setInterval(()=>{availableTokens=Math.min(availableTokens+tokensPerInterval,maxTokens);if(suppressedErrors){console103.warn(`Suppressed ${suppressedErrors} errors to prevent log spam.`);suppressedErrors=0}},5e3);var consumePrintToken=()=>{if(availableTokens>0){availableTokens--;return true}suppressedErrors++;return false};var timeoutLimit=47*1e3;var topLevelMw=async(ctx,next)=>{ctx.set("Server",`txAdmin v${txEnv.txAdminVersion}`);let timerId;const timeout=new Promise((_,reject2)=>{timerId=setTimeout(()=>{reject2(new Error("route_timed_out"))},timeoutLimit)});try{await Promise.race([timeout,next()]);if(typeof ctx.body=="undefined"||typeof ctx.body=="string"&&!ctx.body.length){console103.verbose.warn(`Route without output: ${ctx.path}`);return ctx.body="[no output from route]"}}catch(e){const error=e;const prefix=`[txAdmin v${txEnv.txAdminVersion}]`;const reqPath=ctx.path.length>80?`${ctx.path.slice(0,77)}...`:ctx.path;const methodName=error.stack&&error.stack[0]&&error.stack[0].name?error.stack[0].name:"anonym";ctx.type="text/plain";ctx.set("X-Content-Type-Options","nosniff");if(error.type==="entity.too.large"){const desc=`Entity too large for: ${reqPath}`;ctx.status=413;ctx.body={error:desc};if(consumePrintToken())console103.verbose.error(desc,methodName)}else if(error.type==="stream.not.readable"){const desc=`Stream Not Readable: ${reqPath}`;ctx.status=422;ctx.body={error:desc};if(consumePrintToken())console103.verbose.warn(desc,methodName)}else if(error.message==="route_timed_out"){const desc=`${prefix} Route timed out: ${reqPath}`;ctx.status=408;ctx.body=desc;if(consumePrintToken())console103.error(desc,methodName)}else if(error.message==="Malicious Path"||error.message==="failed to decode"){const desc=`${prefix} Malicious Path: ${reqPath}`;ctx.status=406;ctx.body=desc;if(consumePrintToken())console103.verbose.error(desc,methodName)}else if(error.message.startsWith("Unexpected token")){const desc=`${prefix} Invalid JSON for: ${reqPath}`;ctx.status=400;ctx.body={error:desc};if(consumePrintToken())console103.verbose.error(desc,methodName)}else{const desc=[`${prefix} Internal Error.`,`Route: ${reqPath}`,`Message: ${error.message}`,"Make sure your txAdmin is updated."].join("\n");ctx.status=500;ctx.body=desc;if(consumePrintToken()){console103.error(desc,methodName);console103.verbose.dir(error)}}}finally{clearTimeout(timerId)}};var topLevelMw_default=topLevelMw;var modulename100="WebServer:SetupVarsMw";var console104=console_default(modulename100);var ctxVarsMw=txAdmin=>{return(ctx,next)=>{const txVars={isWebInterface:typeof ctx.headers["x-txadmin-token"]!=="string",realIP:ctx.ip,isLocalRequest:isIpAddressLocal(ctx.ip),hostType:"other"};const host=ctx.request.host??"none";if(host.startsWith("localhost")||host.startsWith("127.")){txVars.hostType="localhost"}else if(/^\d+\.\d+\.\d+\.\d+(?::\d+)?$/.test(host)){txVars.hostType="ip"}if(typeof ctx.headers["x-txadmin-identifiers"]==="string"&&typeof ctx.headers["x-txadmin-token"]==="string"&&ctx.headers["x-txadmin-token"]===txAdmin.webServer.luaComToken&&txVars.isLocalRequest){const ipIdentifier=ctx.headers["x-txadmin-identifiers"].split(",").find(i=>i.substring(0,3)==="ip:");if(ipIdentifier){const srcIP=ipIdentifier.substring(3);if(consts_default.regexValidIP.test(srcIP)){txVars.realIP=srcIP}}}ctx.txAdmin=txAdmin;ctx.txVars=txVars;return next()}};var ctxVarsMw_default=ctxVarsMw;var import_node_path20=__toESM(require("node:path"),1);var import_promises18=__toESM(require("node:fs/promises"),1);var import_ejs=__toESM(require_ejs(),1);var import_promises17=__toESM(require("node:fs/promises"),1);var import_node_path19=__toESM(require("node:path"),1);var modulename101="WebCtxUtils";var console105=console_default(modulename101);var displayFxserverVersionPrefix=convars.isZapHosting&&"/ZAP"||convars.isPterodactyl&&"/Ptero"||"";var displayFxserverVersion=`${txEnv.fxServerVersion}${displayFxserverVersionPrefix}`;var serverTimezone=Intl.DateTimeFormat().resolvedOptions().timeZone;var htmlFile;var viteOrigin=process.env.TXADMIN_DEV_VITE_URL;var devModulesScript=`<script type="module">
         import { injectIntoGlobalHook } from "${viteOrigin}/@react-refresh";
         injectIntoGlobalHook(window);
