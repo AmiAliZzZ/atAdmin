@@ -1,0 +1,473 @@
+<%- await include('parts/header.ejs', locals) %>
+<style>
+.db-card{background:rgba(124,58,237,.08);border:1px solid rgba(139,92,246,.4);border-radius:12px;padding:16px;margin-bottom:14px}
+.db-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:800;color:#d8b4fe;text-shadow:0 0 12px rgba(168,85,247,.65);font-size:1.3rem}
+.db-h .sp{flex:1}
+.db-stat{display:inline-block;min-width:104px;margin:4px 8px 4px 0;padding:6px 12px;border-radius:10px;background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.4);text-align:center;font-size:.75rem}
+.db-stat b{display:block;font-size:1.2rem;color:#e9d5ff}
+.db-tabs{margin-top:10px}.db-tabs button{margin:0 6px 6px 0}.db-tabs button.on{background:#7c3aed!important;box-shadow:0 0 10px rgba(168,85,247,.7)}
+.db-tab{display:none}.db-tab.on{display:block}
+.db-btn{display:inline-block;padding:4px 12px;border-radius:7px;border:1px solid #8b5cf6;background:rgba(139,92,246,.18);color:#e9d5ff;font-size:.82rem;cursor:pointer;margin:2px 4px 2px 0;line-height:1.4}
+.db-btn:hover{background:rgba(139,92,246,.4)}.db-btn:disabled{opacity:.4;cursor:default}
+.db-btn.pri{background:#7c3aed;color:#fff;font-weight:700}.db-btn.dng{border-color:#dc2626;color:#fecaca;background:rgba(220,38,38,.15)}.db-btn.dng:hover{background:rgba(220,38,38,.4)}
+.db-btn.big{padding:7px 16px;font-size:.92rem;font-weight:800;background:linear-gradient(135deg,#7c3aed,#c026d3);color:#fff;border:0;box-shadow:0 0 14px rgba(168,85,247,.7)}
+.db-in,.db-sel,.db-ta{background:#1a1330;color:#e9d5ff;border:1px solid #8b5cf6;border-radius:6px;padding:3px 8px;font-size:.84rem;max-width:100%}
+.db-ta{width:100%;font-family:JetBrains Mono,Consolas,monospace;resize:vertical}
+.db-in.w{width:100%}.db-lbl{display:block;font-size:.74rem;opacity:.75;margin:8px 0 2px}
+.db-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.db-scroll{overflow:auto;max-width:100%;border:1px solid rgba(139,92,246,.3);border-radius:8px}
+table.db-t{border-collapse:collapse;width:100%;font-size:.8rem}
+table.db-t th{position:sticky;top:0;background:#2a1a52;color:#e9d5ff;text-align:left;padding:5px 9px;white-space:nowrap;border-bottom:1px solid #8b5cf6;font-weight:700}
+table.db-t td{padding:4px 9px;border-bottom:1px solid rgba(139,92,246,.18);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:JetBrains Mono,Consolas,monospace}
+table.db-t tr:hover td{background:rgba(139,92,246,.1)}
+table.db-t th.sortable{cursor:pointer}table.db-t td.ed{cursor:cell}
+.nul{opacity:.5;font-style:italic}.ty{opacity:.55;font-weight:400;font-size:.68rem;margin-left:4px}.pk{color:#facc15}
+.db-msg{padding:8px 12px;border-radius:8px;margin:6px 0;font-size:.84rem}.db-msg.ok{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.45)}
+.db-msg.err{background:rgba(220,38,38,.14);border:1px solid rgba(220,38,38,.55)}.db-msg.inf{background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.45)}
+.db-split{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}.db-side{width:200px;flex:none}.db-main{flex:1;min-width:300px}
+.db-side div.tb{padding:5px 9px;border-radius:7px;cursor:pointer;font-size:.84rem;border:1px solid transparent;display:flex;justify-content:space-between;gap:6px}
+.db-side div.tb:hover{background:rgba(139,92,246,.2)}.db-side div.tb.on{background:rgba(139,92,246,.35);border-color:#8b5cf6}.db-side small{opacity:.6}
+.db-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.db-pop{position:fixed;z-index:9998;background:#1b1036;border:1px solid #a855f7;border-radius:10px;padding:10px;box-shadow:0 0 24px rgba(168,85,247,.6);width:360px;max-width:92vw}
+.db-ov{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9997;display:flex;align-items:center;justify-content:center;padding:14px}
+.db-modal{background:#1b1036;border:1px solid #a855f7;border-radius:14px;padding:18px;max-width:880px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 0 30px rgba(168,85,247,.55)}
+.db-bar{height:10px;background:#1a1330;border-radius:6px;overflow:hidden;border:1px solid #8b5cf6}.db-bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7c3aed,#c026d3);transition:width .15s}
+.db-code{background:#120a26;border:1px solid rgba(139,92,246,.4);border-radius:8px;padding:8px 10px;font-family:JetBrains Mono,Consolas,monospace;font-size:.78rem;white-space:pre-wrap;word-break:break-all}
+.db-chk{display:flex;align-items:center;gap:6px;font-size:.84rem;margin:3px 0}.db-mut{opacity:.65;font-size:.78rem}
+.db-res h6{margin:10px 0 4px;font-size:.78rem;color:#c4b5fd;font-family:JetBrains Mono,Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+
+/* ================= DBEngine UI v2 – premium theme ================= */
+:root{--p1:#7c3aed;--p2:#c026d3;--p3:#06b6d4;--bg1:#120a26;--bg2:#1b1036;--bd:rgba(139,92,246,.38);--tx:#ede9fe}
+/* ---- custom scrollbars (everywhere) ---- */
+*{scrollbar-width:thin;scrollbar-color:#8b5cf6 rgba(20,10,40,.6)}
+*::-webkit-scrollbar{width:11px;height:11px}
+*::-webkit-scrollbar-track{background:rgba(18,10,38,.75);border-radius:10px;box-shadow:inset 0 0 6px rgba(0,0,0,.55)}
+*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#a78bfa,#7c3aed 55%,#c026d3);border-radius:10px;border:2px solid rgba(18,10,38,.9);box-shadow:0 0 8px rgba(168,85,247,.8)}
+*::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#c4b5fd,#9333ea 55%,#e879f9);box-shadow:0 0 14px rgba(217,70,239,.95)}
+*::-webkit-scrollbar-thumb:active{background:linear-gradient(180deg,#e9d5ff,#a855f7 55%,#f0abfc)}
+*::-webkit-scrollbar-corner{background:transparent}
+/* ---- cards ---- */
+.db-card{position:relative;background:linear-gradient(145deg,rgba(40,20,80,.62),rgba(18,10,38,.82));border:1px solid var(--bd);border-radius:16px;padding:18px;margin-bottom:16px;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.07);overflow:hidden}
+.db-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--p1),var(--p2),var(--p3),transparent);background-size:200% 100%;animation:dbSlide 5s linear infinite;opacity:.9}
+@keyframes dbSlide{to{background-position:-200% 0}}
+.db-tab.on{animation:dbIn .35s ease}
+@keyframes dbIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.db-h{font-size:1.55rem;letter-spacing:.02em;background:linear-gradient(90deg,#f5d0fe,#c4b5fd,#67e8f9);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 0 12px rgba(168,85,247,.55))}
+.db-h .at-beta{-webkit-text-fill-color:#fff;background:linear-gradient(135deg,var(--p1),var(--p2));border-radius:20px;padding:2px 10px;font-size:.62rem;letter-spacing:.12em;box-shadow:0 0 14px rgba(192,38,211,.8)}
+/* ---- stat tiles ---- */
+.db-stat{position:relative;min-width:118px;margin:5px 8px 5px 0;padding:10px 14px 9px;border-radius:14px;background:linear-gradient(160deg,rgba(124,58,237,.25),rgba(18,10,38,.7));border:1px solid var(--bd);text-align:left;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:#c4b5fd;transition:.25s;overflow:hidden}
+.db-stat::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:100%;background:linear-gradient(90deg,var(--p1),var(--p2),var(--p3));opacity:.8}
+.db-stat::before{position:absolute;right:10px;top:8px;font-size:1.15rem;opacity:.55}
+.db-stat:nth-child(1)::before{content:"🗂️"}.db-stat:nth-child(2)::before{content:"📄"}.db-stat:nth-child(3)::before{content:"💾"}.db-stat:nth-child(4)::before{content:"⚙️"}
+.db-stat:nth-child(5)::before{content:"⚡"}.db-stat:nth-child(6)::before{content:"🐞"}.db-stat:nth-child(7)::before{content:"⏱️"}.db-stat:nth-child(8)::before{content:"🟢"}
+.db-stat:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(124,58,237,.5);border-color:#c084fc}
+.db-stat b{font-size:1.45rem;font-weight:800;letter-spacing:0;text-transform:none;background:linear-gradient(90deg,#fff,#e9d5ff);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:1px}
+/* ---- tab menu ---- */
+.db-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;padding:6px;border-radius:16px;background:rgba(10,5,24,.7);border:1px solid var(--bd);box-shadow:inset 0 2px 12px rgba(0,0,0,.55)}
+.db-tabs button{flex:1 1 auto;margin:0;padding:9px 16px;border-radius:11px;border:1px solid transparent;background:transparent;color:#c4b5fd;font-weight:700;font-size:.86rem;letter-spacing:.02em;white-space:nowrap;position:relative;transition:.22s}
+.db-tabs button i{font-style:normal;margin-right:7px;display:inline-block;transition:.25s}
+.db-tabs button:hover{background:rgba(139,92,246,.2);color:#fff;transform:translateY(-1px)}
+.db-tabs button:hover i{transform:scale(1.25) rotate(-8deg)}
+.db-tabs button.on{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-color:rgba(255,255,255,.28);box-shadow:0 0 18px rgba(168,85,247,.85),inset 0 1px 0 rgba(255,255,255,.3)}
+.db-tabs button.on::after{content:"";position:absolute;left:22%;right:22%;bottom:-7px;height:3px;border-radius:3px;background:linear-gradient(90deg,var(--p3),#f0abfc);box-shadow:0 0 10px #67e8f9}
+/* ---- buttons / inputs ---- */
+.db-btn{border-radius:10px;border:1px solid rgba(139,92,246,.7);background:linear-gradient(180deg,rgba(139,92,246,.28),rgba(91,33,182,.22));padding:5px 14px;font-weight:600;transition:.2s}
+.db-btn:hover{background:linear-gradient(180deg,rgba(167,139,250,.5),rgba(124,58,237,.4));transform:translateY(-1px);box-shadow:0 4px 14px rgba(124,58,237,.55);color:#fff}
+.db-btn:active{transform:translateY(1px) scale(.98)}
+.db-btn.pri{background:linear-gradient(135deg,#7c3aed,#9333ea);border-color:#c084fc;box-shadow:0 0 12px rgba(147,51,234,.6)}
+.db-btn.dng{background:linear-gradient(180deg,rgba(220,38,38,.28),rgba(127,29,29,.3))}
+.db-btn.big{padding:10px 22px;font-size:.98rem;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#c026d3,#7c3aed);background-size:200% 100%;animation:dbSlide 4s linear infinite;box-shadow:0 0 22px rgba(192,38,211,.75);-webkit-text-fill-color:#fff}
+.db-btn.big:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 0 34px rgba(217,70,239,.95)}
+.db-in,.db-sel,.db-ta{background:rgba(10,5,24,.85);border:1px solid rgba(139,92,246,.55);border-radius:9px;padding:5px 10px;transition:.2s}
+.db-in:focus,.db-sel:focus,.db-ta:focus{outline:none;border-color:#c084fc;box-shadow:0 0 0 3px rgba(168,85,247,.3),0 0 14px rgba(168,85,247,.45)}
+.db-ta{line-height:1.5;border-radius:12px}
+/* ---- tables ---- */
+.db-scroll{border-radius:12px;border:1px solid var(--bd);background:rgba(10,5,24,.55);box-shadow:inset 0 0 18px rgba(0,0,0,.4)}
+table.db-t th{background:linear-gradient(180deg,#3b1d7a,#2a1a52);text-transform:uppercase;font-size:.68rem;letter-spacing:.07em;padding:9px 12px;z-index:2}
+table.db-t td{padding:6px 12px;transition:background .15s}
+table.db-t tbody tr:nth-child(even) td{background:rgba(139,92,246,.05)}
+table.db-t tbody tr:hover td{background:rgba(168,85,247,.2)!important;box-shadow:inset 0 1px 0 rgba(192,132,252,.35),inset 0 -1px 0 rgba(192,132,252,.35)}
+table.db-t tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 #c084fc}
+table.db-t input[type=checkbox],.db-chk input{accent-color:#a855f7;width:15px;height:15px;cursor:pointer}
+/* ---- table list sidebar ---- */
+.db-side{width:230px;max-height:70vh;overflow:auto;padding:8px;border-radius:14px;background:rgba(10,5,24,.6);border:1px solid var(--bd);box-shadow:inset 0 0 16px rgba(0,0,0,.45)}
+.db-side div.tb{padding:7px 11px;border-radius:10px;margin-bottom:3px;transition:.18s;position:relative}
+.db-side div.tb span::before{content:"▦ ";color:#a78bfa;opacity:.75}
+.db-side div.tb:hover{background:rgba(139,92,246,.22);transform:translateX(3px)}
+.db-side div.tb.on{background:linear-gradient(90deg,rgba(124,58,237,.6),rgba(192,38,211,.28));border-color:#a855f7;box-shadow:0 0 14px rgba(168,85,247,.45);font-weight:700}
+.db-side div.tb.on::before{content:"";position:absolute;left:-1px;top:20%;bottom:20%;width:3px;border-radius:3px;background:#67e8f9;box-shadow:0 0 8px #67e8f9}
+.db-side small{background:rgba(139,92,246,.3);border-radius:20px;padding:0 8px;opacity:1;font-weight:700;align-self:center}
+/* ---- popups / modals / messages ---- */
+.db-ov{background:rgba(6,2,16,.72);backdrop-filter:blur(6px);animation:dbFade .2s}
+.db-modal,.db-pop{background:linear-gradient(145deg,#24104a,#150a2e);border:1px solid #a855f7;border-radius:18px;box-shadow:0 0 44px rgba(168,85,247,.55),0 20px 60px rgba(0,0,0,.7);animation:dbPop .28s cubic-bezier(.2,1.3,.4,1)}
+@keyframes dbPop{from{opacity:0;transform:scale(.92) translateY(14px)}to{opacity:1;transform:none}}@keyframes dbFade{from{opacity:0}to{opacity:1}}
+.db-msg{border-radius:12px;padding:10px 14px;border-left-width:4px}
+.db-code{background:rgba(6,3,16,.85);border-radius:12px;box-shadow:inset 0 0 14px rgba(0,0,0,.5);color:#d8b4fe}
+.db-bar{height:12px;border-radius:12px}.db-bar>i{box-shadow:0 0 12px #c026d3;background:linear-gradient(90deg,#06b6d4,#7c3aed,#c026d3)}
+.db-lbl{text-transform:uppercase;letter-spacing:.07em;font-size:.68rem;color:#a78bfa;opacity:1;font-weight:700}
+@media(max-width:700px){.db-tabs button{flex:1 1 45%}.db-side{width:100%;max-height:200px}}
+</style>
+
+<div class="db-card">
+ <div class="db-h">🗄️ Database <span class="at-beta">DBEngine</span><span class="sp"></span>
+  <button class="db-btn big" id="btnCfg" title="Writes the database connection info into server.cfg">⚡ Automatic CFG Setup DB</button>
+ </div>
+ <div id="dbStats" class="mt-2"></div>
+ <div class="db-tabs" id="dbTabs">
+  <button class="db-btn on" data-tab="overview"><i>📊</i>Overview</button>
+  <button class="db-btn" data-tab="browser"><i>🔎</i>Browser</button>
+  <button class="db-btn" data-tab="sql"><i>⌨️</i>SQL Console</button>
+  <button class="db-btn" data-tab="structure"><i>🧬</i>Structure</button>
+  <button class="db-btn" data-tab="import"><i>📥</i>Import</button>
+  <button class="db-btn" data-tab="export"><i>📤</i>Export</button>
+  <button class="db-btn" data-tab="backups"><i>🛟</i>Backups</button>
+  <button class="db-btn" data-tab="settings"><i>⚙️</i>Settings</button>
+ </div>
+</div>
+
+<div class="db-card db-tab on" id="tab-overview">
+ <div class="db-row"><button class="db-btn pri" id="ovNew">➕ New table</button><button class="db-btn" id="ovReload">⟳ Refresh</button></div>
+ <div id="ovTables"></div>
+ <div class="db-grid2 mt-3">
+  <div><div class="db-lbl">Connection</div><div class="db-code" id="ovConn"></div></div>
+  <div><div class="db-lbl">server.cfg</div><div class="db-code" id="ovCfg"></div></div>
+ </div>
+ <div class="db-lbl mt-3">Recent queries</div><div id="ovHist"></div>
+</div>
+
+<div class="db-card db-tab" id="tab-browser">
+ <div class="db-split">
+  <div class="db-side" id="brList"></div>
+  <div class="db-main">
+   <div id="brBar" class="db-row"></div>
+   <div id="brAdd"></div>
+   <div id="brGrid"><div class="db-mut">Select a table on the left.</div></div>
+   <div id="brPager" class="db-row mt-2"></div>
+  </div>
+ </div>
+</div>
+
+<div class="db-card db-tab" id="tab-sql">
+ <textarea class="db-ta" id="sqlText" rows="8" spellcheck="false" placeholder="SELECT * FROM users LIMIT 50;&#10;-- Ctrl+Enter to run. Multiple statements separated by ; are supported."></textarea>
+ <div class="db-row mt-2">
+  <button class="db-btn pri" id="sqlRun">▶ Run (Ctrl+Enter)</button>
+  <button class="db-btn" id="sqlRunSel">Run selection</button>
+  <label class="db-chk"><input type="checkbox" id="sqlAtomic"> All-or-nothing (rollback on error)</label>
+  <label class="db-chk"><input type="checkbox" id="sqlCont"> Continue on error</label>
+  <button class="db-btn" id="sqlClear">Clear</button>
+  <select class="db-sel" id="sqlSnip"><option value="">Snippets…</option>
+   <option value="SHOW TABLES;">SHOW TABLES</option>
+   <option value="CREATE TABLE IF NOT EXISTS example (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  identifier VARCHAR(60) NOT NULL UNIQUE,\n  name VARCHAR(50) DEFAULT 'Unknown',\n  money BIGINT DEFAULT 0,\n  data JSON,\n  created TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);">CREATE TABLE template</option>
+   <option value="INSERT INTO example (identifier, name, money) VALUES ('steam:110000100000001', 'Test', 500)\nON DUPLICATE KEY UPDATE money = money + VALUES(money);">INSERT … ON DUPLICATE KEY</option>
+   <option value="SELECT name, COUNT(*) AS cnt, SUM(money) AS total\nFROM example\nGROUP BY name\nHAVING cnt > 0\nORDER BY total DESC\nLIMIT 20;">GROUP BY / aggregate</option>
+   <option value="EXPLAIN SELECT * FROM example WHERE id = 1;">EXPLAIN (index usage)</option>
+   <option value="BEGIN;\nUPDATE example SET money = money - 100 WHERE id = 1;\nROLLBACK;">Transaction demo</option>
+  </select>
+ </div>
+ <div class="db-mut">Supported: SELECT (JOIN, GROUP BY, HAVING, DISTINCT, UNION, subqueries, CASE, 60+ functions), INSERT/REPLACE/ON DUPLICATE KEY UPDATE, UPDATE, DELETE, CREATE/ALTER/DROP/TRUNCATE, indexes, BEGIN/COMMIT/ROLLBACK, SHOW, DESCRIBE, EXPLAIN.</div>
+ <div id="sqlOut" class="db-res mt-2"></div>
+ <div class="db-lbl mt-3">History (click to reuse)</div><div id="sqlHist"></div>
+</div>
+
+<div class="db-card db-tab" id="tab-structure">
+ <div class="db-row"><span>Table:</span><select class="db-sel" id="stTable"></select><button class="db-btn" id="stReload">⟳</button>
+  <button class="db-btn" id="stRename">Rename table</button><button class="db-btn" id="stAuto">Set AUTO_INCREMENT</button></div>
+ <div id="stBody"></div>
+</div>
+
+<div class="db-card db-tab" id="tab-import">
+ <div class="db-grid2">
+  <div>
+   <div class="db-lbl">File (.sql / .json / .csv / .txt)</div><input type="file" id="imFile" class="db-in w" accept=".sql,.json,.csv,.tsv,.txt">
+   <div class="db-lbl">…or paste content</div><textarea class="db-ta" id="imText" rows="6" spellcheck="false"></textarea>
+  </div>
+  <div>
+   <div class="db-lbl">Format</div>
+   <select class="db-sel w" id="imType"><option value="sql">SQL script (mysqldump / phpMyAdmin / DBEngine)</option><option value="json">JSON (DBEngine export, array of rows, or {table:[rows]})</option><option value="csv">CSV / TSV (one table)</option></select>
+   <div id="imOptSql">
+    <label class="db-chk"><input type="checkbox" id="imCont" checked> Continue when a statement fails</label>
+    <label class="db-chk"><input type="checkbox" id="imAtomic"> All-or-nothing (undo everything on first error)</label>
+   </div>
+   <div id="imOptJson" style="display:none">
+    <div class="db-lbl">If a table already exists</div>
+    <select class="db-sel" id="imJMode"><option value="skip">Add rows, skip duplicates</option><option value="replace">Add rows, replace duplicates</option><option value="replace-all">Empty the table, then import</option><option value="drop">Drop and recreate the table</option></select>
+    <div class="db-lbl">Target table (only for a plain array of rows)</div><input class="db-in" id="imJTable" placeholder="table name">
+   </div>
+   <div id="imOptCsv" style="display:none">
+    <div class="db-lbl">Target table</div><input class="db-in" id="imCTable" placeholder="table name (created if missing)">
+    <div class="db-lbl">Delimiter</div><select class="db-sel" id="imCDelim"><option value="">Auto-detect</option><option value=",">, comma</option><option value=";">; semicolon</option><option value="tab">Tab</option><option value="|">| pipe</option></select>
+    <label class="db-chk"><input type="checkbox" id="imCHeader" checked> First row is the header</label>
+    <label class="db-chk"><input type="checkbox" id="imCTrunc"> Empty the table first</label>
+    <div class="db-lbl">Duplicate rows</div><select class="db-sel" id="imCMode"><option value="skip">Skip</option><option value="replace">Replace</option><option value="error">Report as error</option></select>
+   </div>
+   <div class="mt-3"><button class="db-btn pri" id="imRun">⬆ Import</button></div>
+  </div>
+ </div>
+ <div class="db-bar mt-3" id="imBarW" style="display:none"><i id="imBar"></i></div>
+ <div id="imOut" class="mt-2"></div>
+</div>
+
+<div class="db-card db-tab" id="tab-export">
+ <div class="db-grid2">
+  <div><div class="db-lbl">Tables</div><div id="exTables" class="db-scroll" style="max-height:260px;padding:6px 10px"></div>
+   <div class="db-row mt-2"><button class="db-btn" id="exAll">Select all</button><button class="db-btn" id="exNone">None</button></div></div>
+  <div>
+   <div class="db-lbl">Format</div>
+   <select class="db-sel" id="exFmt"><option value="sql">SQL dump (.sql)</option><option value="json">JSON (.json)</option><option value="csv">CSV (.csv) - first selected table only</option></select>
+   <div id="exOptSql">
+    <label class="db-chk"><input type="checkbox" id="exStruct" checked> Structure (CREATE TABLE)</label>
+    <label class="db-chk"><input type="checkbox" id="exData" checked> Data (INSERT)</label>
+    <label class="db-chk"><input type="checkbox" id="exDrop"> Add DROP TABLE IF EXISTS</label>
+    <label class="db-chk"><input type="checkbox" id="exIne"> Use CREATE TABLE IF NOT EXISTS</label>
+   </div>
+   <div id="exOptJson" style="display:none"><label class="db-chk"><input type="checkbox" id="exJData" checked> Include data</label><label class="db-chk"><input type="checkbox" id="exJPretty"> Pretty print</label></div>
+   <div id="exOptCsv" style="display:none">
+    <div class="db-lbl">Delimiter</div><select class="db-sel" id="exDelim"><option value=",">, comma</option><option value=";">; semicolon</option><option value="tab">Tab</option></select>
+    <label class="db-chk"><input type="checkbox" id="exHeader" checked> Header row</label><label class="db-chk"><input type="checkbox" id="exBom"> UTF-8 BOM (for Excel)</label>
+   </div>
+   <div class="mt-3"><button class="db-btn pri" id="exRun">⬇ Download</button></div>
+  </div>
+ </div>
+</div>
+
+<div class="db-card db-tab" id="tab-backups">
+ <div class="db-row"><button class="db-btn pri" id="bkNew">💾 Create backup now</button><button class="db-btn" id="bkReload">⟳ Refresh</button>
+  <span class="db-mut">Automatic backups: Settings tab. A restore always makes a "pre-restore" backup first.</span></div>
+ <div id="bkList"></div>
+</div>
+
+<div class="db-card db-tab" id="tab-settings">
+ <div class="db-grid2">
+  <div><span class="db-lbl">Database name</span><input class="db-in w" id="sDb"></div>
+  <div><span class="db-lbl">Host</span><input class="db-in w" id="sHost"></div>
+  <div><span class="db-lbl">Port</span><input class="db-in w" id="sPort" type="number"></div>
+  <div><span class="db-lbl">Username</span><input class="db-in w" id="sUser"></div>
+  <div><span class="db-lbl">Password</span><div class="db-row" style="margin:0"><input class="db-in" id="sPass" type="password" style="flex:1;min-width:120px"><button class="db-btn" id="sShow">👁</button><button class="db-btn" id="sGen">🎲 Generate</button><button class="db-btn" id="sCopy">Copy</button></div></div>
+  <div><span class="db-lbl">server.cfg convar</span><input class="db-in w" id="sVar"></div>
+  <div><span class="db-lbl">Auto backup every (minutes, 0 = off)</span><input class="db-in w" id="sAb" type="number" min="0"></div>
+  <div><span class="db-lbl">Keep last N backups</span><input class="db-in w" id="sKeep" type="number" min="1"></div>
+ </div>
+ <div class="db-lbl mt-3">Line that will be written to server.cfg</div><div class="db-code" id="sLine"></div>
+ <div class="db-row mt-3"><button class="db-btn pri" id="sSave">Save settings</button><button class="db-btn big" id="sCfg">⚡ Automatic CFG Setup DB</button></div>
+ <div id="sCfgInfo" class="db-mut mt-2"></div>
+ <hr style="border-color:rgba(139,92,246,.3)">
+ <div class="db-lbl">Danger zone</div>
+ <div class="db-row"><button class="db-btn" id="sFlush">Flush to disk now</button><button class="db-btn dng" id="sWipe">Delete ALL tables &amp; data</button></div>
+</div>
+
+<%- await include('parts/footer.ejs', locals) %>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s===null||s===undefined?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const api=(type,url,data,timeout)=>new Promise(res=>txAdminAPI({type,url,data,timeout:timeout||600000,success:r=>res(r||{}),error:x=>res({error:(x&&x.responseJSON&&x.responseJSON.error)||'Request failed'})}));
+const note=(m,ok)=>$.notify({message:m},{type:ok===false?'danger':'success'});
+const qi=n=>'`'+String(n).replace(/`/g,'``')+'`';
+const ql=v=>v===null||v===undefined?'NULL':"'"+String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'\\r')+"'";
+const fmtB=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
+const fmtN=n=>Number(n).toLocaleString();
+const fmtT=s=>s<60?s+'s':s<3600?Math.floor(s/60)+'m':s<86400?Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m':Math.floor(s/86400)+'d';
+const S={ov:null,tab:'overview',tbl:null,page:0,size:50,sort:'',dir:'asc',search:'',searchCol:'',sel:new Set(),b:null,stTbl:null};
+
+/* ---------- generic dialogs ---------- */
+function modal(html){const o=document.createElement('div');o.className='db-ov';o.innerHTML='<div class="db-modal">'+html+'</div>';document.body.appendChild(o);o.addEventListener('mousedown',e=>{if(e.target===o)o.remove()});return o}
+function ask(msg,o){o=o||{};return new Promise(res=>{const m=modal('<div style="font-weight:700;margin-bottom:8px">'+esc(msg)+'</div>'+(o.input?'<input class="db-in w" id="askIn" placeholder="'+esc(o.input)+'" autocomplete="off">':'')+(o.value!==undefined?'<input class="db-in w" id="askVal" value="'+esc(o.value)+'">':'')+'<div class="db-row mt-3"><button class="db-btn '+(o.danger?'dng':'pri')+'" id="askOk">'+esc(o.ok||'OK')+'</button><button class="db-btn" id="askNo">Cancel</button></div>');
+ const done=v=>{m.remove();res(v)};$('askNo').onclick=()=>done(null);
+ const el=$('askIn')||$('askVal');if(el){el.focus();el.onkeydown=e=>{if(e.key==='Enter')$('askOk').click()}}
+ $('askOk').onclick=()=>{if($('askIn')&&$('askIn').value!==o.input)return note('Type exactly: '+o.input,false);done($('askVal')?$('askVal').value:($('askIn')?$('askIn').value:true))}})}
+
+/* ---------- loading / header ---------- */
+async function load(keep){const d=await api('GET','/database/data');if(d.error){$('dbStats').innerHTML='<div class="db-msg err">'+esc(d.error)+'</div>';return false}S.ov=d;renderStats();if(!keep)renderTab();return true}
+function renderStats(){const s=S.ov.stats;$('dbStats').innerHTML=[['Tables',fmtN(s.tables)],['Rows',fmtN(s.rows)],['On disk',fmtB(s.diskBytes)],['Queries',fmtN(s.queries)],['Avg / query',s.avgMs+' ms'],['Errors',fmtN(s.errors)],['Uptime',fmtT(s.uptimeSec)],['Status',s.inTx?'In transaction':(s.pendingWrite?'Saving…':'Online')]].map(x=>'<div class="db-stat"><b>'+x[1]+'</b>'+x[0]+'</div>').join('')}
+function tabTo(t){S.tab=t;document.querySelectorAll('#dbTabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));document.querySelectorAll('.db-tab').forEach(x=>x.classList.toggle('on',x.id==='tab-'+t));renderTab()}
+function renderTab(){const f={overview:rOverview,browser:rBrowser,sql:rSql,structure:rStructure,import:()=>{},export:rExport,backups:rBackups,settings:rSettings}[S.tab];if(f)f()}
+document.querySelectorAll('#dbTabs button').forEach(b=>b.onclick=()=>tabTo(b.dataset.tab));
+const tnames=()=>S.ov.tables.map(t=>t.name);
+
+/* ---------- SQL helper ---------- */
+async function runSql(sql,opts){opts=opts||{};const r=await api('POST','/database/query',{sql,atomic:opts.atomic?'1':'0',cont:opts.cont?'1':'0'});return r}
+async function sqlOrNote(sql,okMsg){const r=await runSql(sql);if(r.error){note(r.error,false);return false}if(okMsg)note(okMsg);await load(true);return r}
+
+/* ---------- Overview ---------- */
+function rOverview(){const o=S.ov;
+ $('ovTables').innerHTML=o.tables.length?'<div class="db-scroll"><table class="db-t"><thead><tr><th>Table</th><th>Rows</th><th>Columns</th><th>Indexes</th><th>Next ID</th><th>Size</th><th></th></tr></thead><tbody>'+o.tables.map(t=>'<tr><td><b>'+esc(t.name)+'</b></td><td>'+fmtN(t.rows)+'</td><td>'+t.cols+'</td><td>'+t.indexes+'</td><td>'+t.auto+'</td><td>'+fmtB(t.bytes)+'</td><td style="font-family:inherit"><button class="db-btn" data-a="browse" data-t="'+esc(t.name)+'">Browse</button><button class="db-btn" data-a="struct" data-t="'+esc(t.name)+'">Structure</button><button class="db-btn" data-a="export" data-t="'+esc(t.name)+'">Export</button><button class="db-btn dng" data-a="trunc" data-t="'+esc(t.name)+'">Empty</button><button class="db-btn dng" data-a="drop" data-t="'+esc(t.name)+'">Drop</button></td></tr>').join('')+'</tbody></table></div>':'<div class="db-msg inf">No tables yet. Create one with “New table”, run CREATE TABLE in the SQL Console, or import a .sql dump.</div>';
+ const s=o.settings;$('ovConn').textContent='Engine:    DBEngine (internal MySQL-compatible server, no external database needed)\nDatabase:  '+s.dbName+'\nHost:      '+s.host+':'+s.port+'\nUser:      '+s.user+'\nPassword:  ********\nURI:       '+o.connString+'\nMySQL port: '+(o.srv?(o.srv.listening?'LISTENING on '+o.srv.bound+' ('+o.srv.connections+' connection(s))':'NOT listening'+(o.srv.error?' - '+o.srv.error:'')):'starting...');
+ const c=o.cfg;$('ovCfg').textContent=(c.file?'File: '+c.file+'\n':'File: (not configured yet)\n')+(c.exists?(c.matches?'Status: ✔ up to date':(c.hasVar?'Status: ⚠ convar exists but differs':'Status: ✖ convar not set')):'Status: server.cfg not found')+'\nLine: '+c.line;
+ $('ovHist').innerHTML=histHtml(o.history.slice(0,8))}
+function histHtml(h){return h.length?'<div class="db-scroll" style="max-height:260px"><table class="db-t"><tbody>'+h.map(x=>'<tr style="cursor:pointer" data-h="'+esc(x.sql)+'"><td style="color:'+(x.ok?'#86efac':'#f87171')+'">'+(x.ok?'✔':'✖')+'</td><td title="'+esc(x.sql)+'">'+esc(x.sql)+'</td><td>'+x.ms+' ms</td><td>'+esc(x.info)+'</td><td>'+new Date(x.ts).toLocaleTimeString()+'</td></tr>').join('')+'</tbody></table></div>':'<div class="db-mut">Nothing yet.</div>'}
+document.addEventListener('click',async e=>{
+ const h=e.target.closest('[data-h]');if(h){$('sqlText').value=h.dataset.h;tabTo('sql');return}
+ const b=e.target.closest('[data-a]');if(!b||!b.dataset.t)return;const t=b.dataset.t,a=b.dataset.a;
+ if(a==='browse'){S.tbl=t;S.page=0;S.sort='';S.search='';S.sel.clear();tabTo('browser')}
+ else if(a==='struct'){S.stTbl=t;tabTo('structure')}
+ else if(a==='export'){tabTo('export');document.querySelectorAll('#exTables input').forEach(i=>i.checked=(i.value===t))}
+ else if(a==='trunc'){if(await ask('Delete ALL rows of “'+t+'”?',{danger:true,ok:'Empty table'}))await sqlOrNote('TRUNCATE TABLE '+qi(t),'Table emptied')&&renderTab()}
+ else if(a==='drop'){if(await ask('Drop table “'+t+'” permanently?',{danger:true,input:t,ok:'Drop table'}))await sqlOrNote('DROP TABLE '+qi(t),'Table dropped')&&renderTab()}});
+$('ovReload').onclick=()=>load();
+const TYPES=['INT','BIGINT','TINYINT(1)','VARCHAR(255)','VARCHAR(60)','TEXT','LONGTEXT','DOUBLE','DECIMAL(10,2)','BOOLEAN','JSON','DATETIME','TIMESTAMP','DATE'];
+const typeSel=(v,id)=>'<select class="db-sel" '+(id||'')+'>'+TYPES.map(t=>'<option'+(t===v?' selected':'')+'>'+t+'</option>').join('')+'</select>';
+$('ovNew').onclick=()=>{
+ const rowHtml=(c)=>'<tr><td><input class="db-in c-n" value="'+esc(c.n)+'" style="width:130px"></td><td>'+typeSel(c.t,'class="db-sel c-t"')+'</td><td><input type="checkbox" class="c-nn"'+(c.nn?' checked':'')+'></td><td><input type="checkbox" class="c-ai"'+(c.ai?' checked':'')+'></td><td><input type="checkbox" class="c-pk"'+(c.pk?' checked':'')+'></td><td><input type="checkbox" class="c-un"'+(c.un?' checked':'')+'></td><td><input class="db-in c-d" value="'+esc(c.d||'')+'" style="width:110px" placeholder="default"></td><td><button class="db-btn dng c-x">✕</button></td></tr>';
+ const m=modal('<div style="font-weight:800;font-size:1.1rem;margin-bottom:8px">New table</div><span class="db-lbl">Table name</span><input class="db-in" id="ntName" placeholder="users"><div class="db-scroll mt-3"><table class="db-t"><thead><tr><th>Column</th><th>Type</th><th>NOT NULL</th><th>AUTO_INC</th><th>PRIMARY</th><th>UNIQUE</th><th>Default</th><th></th></tr></thead><tbody id="ntRows">'+rowHtml({n:'id',t:'INT',nn:1,ai:1,pk:1})+rowHtml({n:'name',t:'VARCHAR(255)'})+'</tbody></table></div><div class="db-row mt-2"><button class="db-btn" id="ntAdd">➕ Add column</button></div><div class="db-row mt-3"><button class="db-btn pri" id="ntOk">Create table</button><button class="db-btn" id="ntNo">Cancel</button></div>');
+ m.querySelector('#ntNo').onclick=()=>m.remove();
+ m.querySelector('#ntAdd').onclick=()=>{const tb=m.querySelector('#ntRows');tb.insertAdjacentHTML('beforeend',rowHtml({n:'',t:'VARCHAR(255)'}))};
+ m.addEventListener('click',e=>{const x=e.target.closest('.c-x');if(x)x.closest('tr').remove()});
+ m.querySelector('#ntOk').onclick=async()=>{const name=m.querySelector('#ntName').value.trim();if(!name)return note('Enter a table name',false);
+  const cols=[...m.querySelectorAll('#ntRows tr')].map(tr=>({n:tr.querySelector('.c-n').value.trim(),t:tr.querySelector('.c-t').value,nn:tr.querySelector('.c-nn').checked,ai:tr.querySelector('.c-ai').checked,pk:tr.querySelector('.c-pk').checked,un:tr.querySelector('.c-un').checked,d:tr.querySelector('.c-d').value})).filter(c=>c.n);
+  if(!cols.length)return note('Add at least one column',false);
+  const pks=cols.filter(c=>c.pk).map(c=>qi(c.n));
+  const lines=cols.map(c=>'  '+qi(c.n)+' '+c.t+(c.nn?' NOT NULL':'')+(c.ai?' AUTO_INCREMENT':'')+(c.un?' UNIQUE':'')+(c.d!==''?' DEFAULT '+(/^(null|current_timestamp(\(\))?|[-+]?\d+(\.\d+)?)$/i.test(c.d)?c.d:ql(c.d)):''));
+  if(pks.length)lines.push('  PRIMARY KEY ('+pks.join(', ')+')');
+  const r=await sqlOrNote('CREATE TABLE '+qi(name)+' (\n'+lines.join(',\n')+'\n)','Table created');if(r){m.remove();renderTab()}}};
+
+/* ---------- Browser ---------- */
+function rBrowser(){
+ $('brList').innerHTML='<div class="db-mut" style="margin-bottom:6px">'+tnames().length+' table(s)</div>'+(S.ov.tables.map(t=>'<div class="tb'+(t.name===S.tbl?' on':'')+'" data-bt="'+esc(t.name)+'"><span>'+esc(t.name)+'</span><small>'+fmtN(t.rows)+'</small></div>').join('')||'<div class="db-mut">No tables</div>');
+ if(S.tbl&&!tnames().includes(S.tbl))S.tbl=null;
+ if(!S.tbl&&tnames().length)S.tbl=tnames()[0];
+ if(S.tbl)loadBrowse();else{$('brBar').innerHTML='';$('brGrid').innerHTML='<div class="db-mut">Create a table first.</div>';$('brPager').innerHTML='';$('brAdd').innerHTML=''}}
+$('brList').addEventListener('click',e=>{const t=e.target.closest('[data-bt]');if(!t)return;S.tbl=t.dataset.bt;S.page=0;S.sort='';S.search='';S.searchCol='';S.sel.clear();$('brAdd').innerHTML='';rBrowser()});
+async function loadBrowse(){const r=await api('POST','/database/browse',{table:S.tbl,page:S.page,size:S.size,sort:S.sort,dir:S.dir,search:S.search,searchCol:S.searchCol});
+ if(r.error){$('brGrid').innerHTML='<div class="db-msg err">'+esc(r.error)+'</div>';return}S.b=r;S.page=r.page;S.sel.clear();drawBar();drawGrid();drawPager()}
+function drawBar(){const cols=S.b.columns;$('brBar').innerHTML='<b style="color:#d8b4fe">'+esc(S.tbl)+'</b><input class="db-in" id="brQ" placeholder="Search…" value="'+esc(S.search)+'" style="width:170px"><select class="db-sel" id="brQc"><option value="">all columns</option>'+cols.map(c=>'<option'+(c.name===S.searchCol?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select><button class="db-btn" id="brGo">Search</button><button class="db-btn pri" id="brNew">➕ Add row</button><button class="db-btn dng" id="brDel">🗑 Delete selected</button><button class="db-btn" id="brRef">⟳</button><button class="db-btn" id="brSt">Structure</button>';
+ $('brQ').onkeydown=e=>{if(e.key==='Enter')$('brGo').click()};
+ $('brGo').onclick=()=>{S.search=$('brQ').value;S.searchCol=$('brQc').value;S.page=0;loadBrowse()};
+ $('brRef').onclick=async()=>{await load(true);loadBrowse()};$('brSt').onclick=()=>{S.stTbl=S.tbl;tabTo('structure')};
+ $('brNew').onclick=openAdd;
+ $('brDel').onclick=async()=>{if(!S.sel.size)return note('Select rows first',false);if(!await ask('Delete '+S.sel.size+' selected row(s)?',{danger:true,ok:'Delete'}))return;const r=await api('POST','/database/row',{table:S.tbl,op:'delete',rids:JSON.stringify([...S.sel])});if(r.error)return note(r.error,false);note(r.deleted+' row(s) deleted');await load(true);loadBrowse()}}
+function cellHtml(v){if(v===null||v===undefined)return '<span class="nul">NULL</span>';const s=String(v);return esc(s.length>160?s.slice(0,160)+'…':s)}
+function drawGrid(){const b=S.b;
+ $('brGrid').innerHTML='<div class="db-scroll" style="max-height:62vh"><table class="db-t"><thead><tr><th><input type="checkbox" id="brAll"></th>'+b.columns.map(c=>'<th class="sortable" data-sort="'+esc(c.name)+'">'+(c.pk?'<span class="pk">🔑</span> ':'')+esc(c.name)+'<span class="ty">'+esc(c.type)+'</span>'+(S.sort===c.name?(S.dir==='asc'?' ▲':' ▼'):'')+'</th>').join('')+'</tr></thead><tbody>'+(b.rows.length?b.rows.map(r=>'<tr data-rid="'+r.rid+'"><td><input type="checkbox" class="rsel" value="'+r.rid+'"></td>'+r.v.map((v,i)=>'<td class="ed" data-ci="'+i+'" title="'+esc(v===null?'NULL':String(v).slice(0,500))+' (double-click to edit)">'+cellHtml(v)+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+(b.columns.length+1)+'" class="db-mut" style="font-family:inherit">No rows'+(S.search?' match your search':'')+'.</td></tr>')+'</tbody></table></div>';
+ $('brAll').onchange=e=>{document.querySelectorAll('.rsel').forEach(c=>{c.checked=e.target.checked;e.target.checked?S.sel.add(+c.value):S.sel.delete(+c.value)})};
+ document.querySelectorAll('.rsel').forEach(c=>c.onchange=()=>{c.checked?S.sel.add(+c.value):S.sel.delete(+c.value)});
+ document.querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{const n=th.dataset.sort;if(S.sort===n)S.dir=S.dir==='asc'?'desc':'asc';else{S.sort=n;S.dir='asc'}S.page=0;loadBrowse()});
+ document.querySelectorAll('td.ed').forEach(td=>td.ondblclick=()=>editCell(td))}
+function drawPager(){const b=S.b;$('brPager').innerHTML='<button class="db-btn" data-p="0">⏮</button><button class="db-btn" data-p="'+(b.page-1)+'">◀</button><span>Page <b>'+(b.page+1)+'</b> / '+b.pages+' · '+fmtN(b.total)+' row(s)</span><button class="db-btn" data-p="'+(b.page+1)+'">▶</button><button class="db-btn" data-p="'+(b.pages-1)+'">⏭</button><select class="db-sel" id="brSize">'+[25,50,100,250,500,1000].map(n=>'<option'+(n===S.size?' selected':'')+'>'+n+'</option>').join('')+'</select><span class="db-mut">per page · double-click a cell to edit</span>';
+ document.querySelectorAll('[data-p]').forEach(x=>x.onclick=()=>{const p=+x.dataset.p;if(p<0||p>=b.pages)return;S.page=p;loadBrowse()});
+ $('brSize').onchange=e=>{S.size=+e.target.value;S.page=0;loadBrowse()}}
+function editCell(td){document.querySelectorAll('.db-pop').forEach(p=>p.remove());
+ const tr=td.closest('tr'),rid=+tr.dataset.rid,ci=+td.dataset.ci,col=S.b.columns[ci],row=S.b.rows.find(r=>r.rid===rid),old=row.v[ci];
+ const rc=td.getBoundingClientRect();const pop=document.createElement('div');pop.className='db-pop';pop.style.left=Math.max(8,Math.min(rc.left,innerWidth-380))+'px';pop.style.top=Math.min(rc.bottom+4,innerHeight-230)+'px';
+ pop.innerHTML='<div class="db-mut" style="margin-bottom:4px">'+esc(col.name)+' <span class="ty">'+esc(col.type)+'</span></div><textarea class="db-ta" rows="4" id="ceV" spellcheck="false">'+esc(old===null?'':old)+'</textarea><div class="db-row mt-2"><button class="db-btn pri" id="ceS">Save</button>'+(col.notnull?'':'<button class="db-btn" id="ceN">Set NULL</button>')+'<button class="db-btn" id="ceC">Cancel</button></div>';
+ document.body.appendChild(pop);const ta=pop.querySelector('#ceV');ta.focus();ta.select();
+ const close=()=>{pop.remove();document.removeEventListener('mousedown',outside,true)};
+ const outside=e=>{if(!pop.contains(e.target))close()};setTimeout(()=>document.addEventListener('mousedown',outside,true),0);
+ const save=async v=>{const r=await api('POST','/database/row',{table:S.tbl,op:'update',rid,values:JSON.stringify({[col.name]:v})});if(r.error)return note(r.error,false);close();row.v=S.b.columns.map(c=>r.row[c.name]);td.parentNode.querySelectorAll('td.ed').forEach((x,i)=>x.innerHTML=cellHtml(row.v[i]));note('Saved')};
+ pop.querySelector('#ceS').onclick=()=>save(ta.value);pop.querySelector('#ceC').onclick=close;const n=pop.querySelector('#ceN');if(n)n.onclick=()=>save(null);
+ ta.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();save(ta.value)}if(e.key==='Escape')close()}}
+function openAdd(){const cols=S.b.columns;
+ $('brAdd').innerHTML='<div class="db-card" style="margin-bottom:8px"><b>Add row to '+esc(S.tbl)+'</b> <span class="db-mut">(leave empty to use the default / auto value)</span><div class="db-grid2 mt-2">'+cols.map((c,i)=>'<div><span class="db-lbl">'+(c.pk?'🔑 ':'')+esc(c.name)+' <span class="ty">'+esc(c.type)+(c.auto?' · auto':'')+'</span></span><div class="db-row" style="margin:0"><input class="db-in add-v" data-i="'+i+'" style="flex:1;min-width:100px" placeholder="'+(c.auto?'auto':(c.hasDef?'default':(c.notnull?'required':'NULL')))+'">'+(c.notnull?'':'<label class="db-chk" title="Force NULL"><input type="checkbox" class="add-n" data-i="'+i+'">NULL</label>')+'</div></div>').join('')+'</div><div class="db-row mt-3"><button class="db-btn pri" id="addOk">Insert row</button><button class="db-btn" id="addNo">Close</button></div></div>';
+ $('addNo').onclick=()=>$('brAdd').innerHTML='';
+ $('addOk').onclick=async()=>{const vals={};document.querySelectorAll('.add-v').forEach(x=>{if(x.value!=='')vals[cols[+x.dataset.i].name]=x.value});document.querySelectorAll('.add-n').forEach(x=>{if(x.checked)vals[cols[+x.dataset.i].name]=null});
+  const r=await api('POST','/database/row',{table:S.tbl,op:'insert',values:JSON.stringify(vals)});if(r.error)return note(r.error,false);note('Row inserted');$('brAdd').innerHTML='';await load(true);S.sort='';S.search='';S.page=1e9;loadBrowse()}}
+
+/* ---------- SQL console ---------- */
+function rSql(){$('sqlHist').innerHTML=histHtml(S.ov.history.slice(0,40))}
+function resultsHtml(rs,topErr){let h='';
+ rs.forEach((r,i)=>{h+='<h6>#'+(r.index||i+1)+'  '+esc(r.sql||'')+'</h6>';
+  if(r.type==='error')h+='<div class="db-msg err">✖ '+esc(r.error)+'</div>';
+  else if(r.type==='rows')h+='<div class="db-row"><span class="db-mut">'+fmtN(r.total||r.rows.length)+' row(s)'+(r.truncated?' (showing first '+fmtN(r.rows.length)+')':'')+' · '+(Math.round(r.ms*100)/100)+' ms</span><button class="db-btn" data-csv="'+i+'">⬇ CSV</button><button class="db-btn" data-copy="'+i+'">Copy JSON</button></div><div class="db-scroll" style="max-height:55vh"><table class="db-t"><thead><tr>'+r.columns.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+r.rows.map(row=>'<tr>'+row.map(v=>'<td title="'+esc(v===null?'NULL':String(v).slice(0,300))+'">'+cellHtml(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+  else h+='<div class="db-msg ok">✔ '+esc(r.message||'OK')+(r.affected?' · '+fmtN(r.affected)+' affected':'')+(r.insertId?' · insert id '+r.insertId:'')+' · '+(Math.round(r.ms*100)/100)+' ms</div>'});
+ if(topErr)h+='<div class="db-msg err">✖ '+esc(topErr)+'</div>';return h}
+let lastRes=[];
+async function runConsole(sql){if(!sql.trim())return;$('sqlOut').innerHTML='<div class="db-mut">Running…</div>';const t0=performance.now();const r=await runSql(sql,{atomic:$('sqlAtomic').checked,cont:$('sqlCont').checked});
+ lastRes=r.results||[];let h=resultsHtml(lastRes,r.error?(r.statementIndex?'Statement '+r.statementIndex+': ':'')+r.error:null);if(r.rolledBack)h+='<div class="db-msg inf">↩ Everything was rolled back.</div>';
+ $('sqlOut').innerHTML=h||'<div class="db-msg ok">Done.</div>';await load(true);$('sqlHist').innerHTML=histHtml(S.ov.history.slice(0,40))}
+$('sqlRun').onclick=()=>runConsole($('sqlText').value);
+$('sqlRunSel').onclick=()=>{const t=$('sqlText');const s=t.value.substring(t.selectionStart,t.selectionEnd);runConsole(s||t.value)};
+$('sqlText').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();const t=e.target;const s=t.value.substring(t.selectionStart,t.selectionEnd);runConsole(s||t.value)}if(e.key==='Tab'){e.preventDefault();const t=e.target,p=t.selectionStart;t.value=t.value.slice(0,p)+'  '+t.value.slice(t.selectionEnd);t.selectionStart=t.selectionEnd=p+2}};
+$('sqlClear').onclick=()=>{$('sqlText').value='';$('sqlOut').innerHTML=''};
+$('sqlSnip').onchange=e=>{if(e.target.value)$('sqlText').value=e.target.value;e.target.value=''};
+$('sqlOut').addEventListener('click',e=>{const c=e.target.closest('[data-csv]'),p=e.target.closest('[data-copy]');
+ if(c){const r=lastRes[+c.dataset.csv];const q=v=>v===null?'':'"'+String(v).replace(/"/g,'""')+'"';const csv=[r.columns.map(q).join(',')].concat(r.rows.map(x=>x.map(q).join(','))).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='query_result.csv';a.click()}
+ if(p){const r=lastRes[+p.dataset.copy];const js=JSON.stringify(r.rows.map(x=>Object.fromEntries(r.columns.map((k,i)=>[k,x[i]]))),null,2);navigator.clipboard.writeText(js).then(()=>note('Copied'),()=>note('Copy failed',false))}});
+
+/* ---------- Structure ---------- */
+async function rStructure(){const names=tnames();$('stTable').innerHTML=names.map(n=>'<option'+(n===S.stTbl?' selected':'')+'>'+esc(n)+'</option>').join('');
+ if(!names.length){$('stBody').innerHTML='<div class="db-msg inf">No tables.</div>';return}
+ if(!S.stTbl||!names.includes(S.stTbl))S.stTbl=names[0];$('stTable').value=S.stTbl;const t=S.stTbl;
+ const r=await runSql('SHOW COLUMNS FROM '+qi(t)+'; SHOW INDEX FROM '+qi(t)+'; SHOW CREATE TABLE '+qi(t));if(r.error){$('stBody').innerHTML='<div class="db-msg err">'+esc(r.error)+'</div>';return}
+ const [cols,idx,cr]=r.results;
+ let h='<div class="db-lbl">Columns</div><div class="db-scroll"><table class="db-t"><thead><tr><th>Name</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Extra</th><th></th></tr></thead><tbody>'+cols.rows.map(c=>'<tr><td><b>'+esc(c[0])+'</b></td><td>'+esc(c[1])+'</td><td>'+c[2]+'</td><td>'+esc(c[3])+'</td><td>'+(c[4]===null?'<span class="nul">NULL</span>':esc(c[4]))+'</td><td>'+esc(c[5])+'</td><td style="font-family:inherit"><button class="db-btn" data-sa="ren" data-c="'+esc(c[0])+'">Rename</button><button class="db-btn" data-sa="mod" data-c="'+esc(c[0])+'" data-ty="'+esc(c[1])+'">Change type</button><button class="db-btn dng" data-sa="dropc" data-c="'+esc(c[0])+'">Drop</button></td></tr>').join('')+'</tbody></table></div>';
+ h+='<div class="db-lbl mt-3">Add column</div><div class="db-row"><input class="db-in" id="acName" placeholder="name" style="width:130px">'+typeSel('VARCHAR(255)','id="acType" class="db-sel"')+'<label class="db-chk"><input type="checkbox" id="acNN">NOT NULL</label><input class="db-in" id="acDef" placeholder="default" style="width:110px"><select class="db-sel" id="acAfter"><option value="">at the end</option><option value="__FIRST__">first</option>'+cols.rows.map(c=>'<option value="'+esc(c[0])+'">after '+esc(c[0])+'</option>').join('')+'</select><button class="db-btn pri" id="acGo">Add</button></div>';
+ const ixm={};idx.rows.forEach(x=>{(ixm[x[2]]=ixm[x[2]]||{u:!x[1],c:[]}).c.push(x[4])});
+ h+='<div class="db-lbl mt-3">Indexes</div>'+(Object.keys(ixm).length?'<div class="db-scroll"><table class="db-t"><thead><tr><th>Name</th><th>Columns</th><th>Type</th><th></th></tr></thead><tbody>'+Object.keys(ixm).map(k=>'<tr><td><b>'+esc(k)+'</b></td><td>'+esc(ixm[k].c.join(', '))+'</td><td>'+(k==='PRIMARY'?'PRIMARY':ixm[k].u?'UNIQUE':'INDEX')+'</td><td style="font-family:inherit"><button class="db-btn dng" data-sa="dropi" data-c="'+esc(k)+'">Drop</button></td></tr>').join('')+'</tbody></table></div>':'<div class="db-mut">No indexes.</div>');
+ h+='<div class="db-row mt-2"><input class="db-in" id="aiCols" placeholder="col1, col2" style="width:200px"><label class="db-chk"><input type="checkbox" id="aiUn">UNIQUE</label><button class="db-btn pri" id="aiGo">Add index</button></div>';
+ h+='<div class="db-lbl mt-3">CREATE TABLE</div><div class="db-code">'+esc(cr.rows[0][1])+'</div>';
+ $('stBody').innerHTML=h}
+$('stTable').onchange=e=>{S.stTbl=e.target.value;rStructure()};$('stReload').onclick=async()=>{await load(true);rStructure()};
+$('stRename').onclick=async()=>{const n=await ask('New name for “'+S.stTbl+'”',{value:S.stTbl,ok:'Rename'});if(!n||n===S.stTbl)return;if(await sqlOrNote('RENAME TABLE '+qi(S.stTbl)+' TO '+qi(n),'Renamed')){S.stTbl=n;if(S.tbl)S.tbl=n;rStructure()}};
+$('stAuto').onclick=async()=>{const n=await ask('Next AUTO_INCREMENT value',{value:'1',ok:'Set'});if(n&&await sqlOrNote('ALTER TABLE '+qi(S.stTbl)+' AUTO_INCREMENT='+(+n||1),'Updated'))rStructure()};
+$('stBody').addEventListener('click',async e=>{const b=e.target.closest('[data-sa],#acGo,#aiGo');if(!b)return;const t=qi(S.stTbl);let sql=null,msg='Done';
+ if(b.id==='acGo'){const n=$('acName').value.trim();if(!n)return note('Column name?',false);const d=$('acDef').value;sql='ALTER TABLE '+t+' ADD COLUMN '+qi(n)+' '+$('acType').value+($('acNN').checked?' NOT NULL':'')+(d!==''?' DEFAULT '+(/^(null|current_timestamp|[-+]?\d+(\.\d+)?)$/i.test(d)?d:ql(d)):'')+($('acAfter').value==='__FIRST__'?' FIRST':($('acAfter').value?' AFTER '+qi($('acAfter').value):''));msg='Column added'}
+ else if(b.id==='aiGo'){const cs=$('aiCols').value.split(',').map(x=>x.trim()).filter(Boolean);if(!cs.length)return note('Enter column names',false);sql='ALTER TABLE '+t+' ADD '+($('aiUn').checked?'UNIQUE ':'')+'INDEX ('+cs.map(qi).join(', ')+')';msg='Index added'}
+ else{const a=b.dataset.sa,c=b.dataset.c;
+  if(a==='dropc'){if(!await ask('Drop column “'+c+'” and its data?',{danger:true,ok:'Drop column'}))return;sql='ALTER TABLE '+t+' DROP COLUMN '+qi(c);msg='Column dropped'}
+  if(a==='ren'){const n=await ask('Rename column “'+c+'” to',{value:c,ok:'Rename'});if(!n||n===c)return;sql='ALTER TABLE '+t+' RENAME COLUMN '+qi(c)+' TO '+qi(n);msg='Column renamed'}
+  if(a==='mod'){const n=await ask('New type for “'+c+'” (e.g. VARCHAR(100), INT, TEXT)',{value:b.dataset.ty,ok:'Change'});if(!n)return;sql='ALTER TABLE '+t+' MODIFY COLUMN '+qi(c)+' '+n;msg='Column changed'}
+  if(a==='dropi'){sql=c==='PRIMARY'?'ALTER TABLE '+t+' DROP PRIMARY KEY':'DROP INDEX '+qi(c)+' ON '+t;msg='Index dropped'}}
+ if(sql&&await sqlOrNote(sql,msg))rStructure()});
+
+/* ---------- Import ---------- */
+$('imType').onchange=()=>{const v=$('imType').value;$('imOptSql').style.display=v==='sql'?'':'none';$('imOptJson').style.display=v==='json'?'':'none';$('imOptCsv').style.display=v==='csv'?'':'none'};
+$('imFile').onchange=()=>{const f=$('imFile').files[0];if(!f)return;const n=f.name.toLowerCase();$('imType').value=/\.json$/.test(n)?'json':/\.(csv|tsv|txt)$/.test(n)?'csv':'sql';$('imType').onchange();if($('imType').value==='csv'&&!$('imCTable').value)$('imCTable').value=f.name.replace(/\.[^.]+$/,'').replace(/[^\w$\-. ]/g,'_').slice(0,60);if(/\.tsv$/.test(n))$('imCDelim').value='tab'};
+function b64chunks(text,size){const bytes=new TextEncoder().encode(text);const out=[];for(let i=0;i<bytes.length;i+=size){let s='';const sub=bytes.subarray(i,Math.min(i+size,bytes.length));for(let j=0;j<sub.length;j+=8192)s+=String.fromCharCode.apply(null,sub.subarray(j,j+8192));out.push(btoa(s))}return out.length?out:['']}
+$('imRun').onclick=async()=>{let text=$('imText').value;const f=$('imFile').files[0];
+ if(f)text=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsText(f)});
+ if(!text||!text.trim())return note('Choose a file or paste content',false);
+ const type=$('imType').value;const opts={type};
+ if(type==='sql'){opts.cont=$('imCont').checked;opts.atomic=$('imAtomic').checked}
+ if(type==='json'){opts.mode=$('imJMode').value;opts.table=$('imJTable').value.trim()}
+ if(type==='csv'){opts.table=$('imCTable').value.trim();opts.delimiter=$('imCDelim').value;opts.header=$('imCHeader').checked;opts.truncate=$('imCTrunc').checked;opts.mode=$('imCMode').value;if(!opts.table)return note('Enter the target table name',false)}
+ const parts=b64chunks(text,24000),id='u'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+ $('imRun').disabled=true;$('imBarW').style.display='';$('imBar').style.width='0';$('imOut').innerHTML='';let last=null;
+ for(let i=0;i<parts.length;i++){const r=await api('POST','/database/import',{id,idx:i,total:parts.length,chunk:parts[i],opts:i===parts.length-1?JSON.stringify(opts):''});
+  if(r.error){$('imOut').innerHTML='<div class="db-msg err">'+esc(r.error)+'</div>';$('imRun').disabled=false;return}
+  $('imBar').style.width=Math.round((i+1)/parts.length*(i===parts.length-1?100:96))+'%';last=r}
+ $('imRun').disabled=false;const r=last.result;let h='';
+ if(r.kind==='sql')h='<div class="db-msg '+(r.failed?'err':'ok')+'">'+(r.rolledBack?'↩ Rolled back. ':'')+fmtN(r.ok)+' of '+fmtN(r.statements)+' statements succeeded · '+fmtN(r.affected)+' rows affected · '+r.ms+' ms'+(r.failed?' · <b>'+fmtN(r.failed)+' failed</b>':'')+'</div>'+(r.errors||[]).map(x=>'<div class="db-msg err">#'+x.index+': '+esc(x.error)+'<div class="db-mut">'+esc(x.sql)+'</div></div>').join('');
+ else h='<div class="db-msg '+(r.failed?'err':'ok')+'">'+fmtN(r.inserted)+' inserted · '+fmtN(r.replaced)+' replaced · '+fmtN(r.skipped)+' skipped · '+fmtN(r.failed)+' failed · '+r.tables+' table(s)'+(r.created.length?' · created: '+esc(r.created.join(', ')):'')+' · '+r.ms+' ms</div>'+(r.errors||[]).map(x=>'<div class="db-msg err">'+esc(x)+'</div>').join('');
+ $('imOut').innerHTML=h;note('Import finished');await load(true)};
+
+/* ---------- Export ---------- */
+function rExport(){$('exTables').innerHTML=tnames().map(n=>'<label class="db-chk"><input type="checkbox" value="'+esc(n)+'" checked> '+esc(n)+'</label>').join('')||'<div class="db-mut">No tables</div>'}
+$('exAll').onclick=()=>document.querySelectorAll('#exTables input').forEach(i=>i.checked=true);$('exNone').onclick=()=>document.querySelectorAll('#exTables input').forEach(i=>i.checked=false);
+$('exFmt').onchange=()=>{const v=$('exFmt').value;$('exOptSql').style.display=v==='sql'?'':'none';$('exOptJson').style.display=v==='json'?'':'none';$('exOptCsv').style.display=v==='csv'?'':'none'};
+const dl=url=>{const a=document.createElement('a');a.href=TX_BASE_PATH+url;a.download='';document.body.appendChild(a);a.click();a.remove()};
+$('exRun').onclick=()=>{const t=[...document.querySelectorAll('#exTables input:checked')].map(i=>i.value);const all=t.length===tnames().length;if(!t.length)return note('Select at least one table',false);const f=$('exFmt').value;
+ let q='format='+f+(all?'':'&tables='+encodeURIComponent(t.join(',')));
+ if(f==='sql')q+='&structure='+($('exStruct').checked?1:0)+'&data='+($('exData').checked?1:0)+'&drop='+($('exDrop').checked?1:0)+'&ine='+($('exIne').checked?1:0);
+ if(f==='json')q+='&data='+($('exJData').checked?1:0)+'&pretty='+($('exJPretty').checked?1:0);
+ if(f==='csv')q='format=csv&tables='+encodeURIComponent(t[0])+'&delimiter='+encodeURIComponent($('exDelim').value)+'&header='+($('exHeader').checked?1:0)+'&bom='+($('exBom').checked?1:0);
+ dl('database/export?'+q)};
+
+/* ---------- Backups ---------- */
+async function rBackups(){const r=await api('POST','/database/backup',{action:'list'});if(r.error){$('bkList').innerHTML='<div class="db-msg err">'+esc(r.error)+'</div>';return}
+ $('bkList').innerHTML=r.list.length?'<div class="db-scroll"><table class="db-t"><thead><tr><th>File</th><th>Created</th><th>Size</th><th></th></tr></thead><tbody>'+r.list.map(b=>'<tr><td>'+esc(b.name)+'</td><td>'+new Date(b.mtime).toLocaleString()+'</td><td>'+fmtB(b.size)+'</td><td style="font-family:inherit"><button class="db-btn" data-bk="dl" data-n="'+esc(b.name)+'">Download</button><button class="db-btn" data-bk="rs" data-n="'+esc(b.name)+'">Restore</button><button class="db-btn dng" data-bk="rm" data-n="'+esc(b.name)+'">Delete</button></td></tr>').join('')+'</tbody></table></div>':'<div class="db-msg inf">No backups yet.</div>'}
+$('bkNew').onclick=async()=>{const r=await api('POST','/database/backup',{action:'create',label:'manual'});if(r.error)return note(r.error,false);note('Backup created: '+r.name);rBackups()};$('bkReload').onclick=rBackups;
+$('bkList').addEventListener('click',async e=>{const b=e.target.closest('[data-bk]');if(!b)return;const n=b.dataset.n,a=b.dataset.bk;
+ if(a==='dl')dl('database/backup/download?name='+encodeURIComponent(n));
+ if(a==='rm'&&await ask('Delete backup '+n+'?',{danger:true,ok:'Delete'})){const r=await api('POST','/database/backup',{action:'delete',name:n});if(r.error)return note(r.error,false);rBackups()}
+ if(a==='rs'&&await ask('Restore '+n+'? The current data is replaced (a pre-restore backup is made first).',{danger:true,ok:'Restore'})){const r=await api('POST','/database/backup',{action:'restore',name:n});if(r.error)return note(r.error,false);note('Backup restored');await load(true);rBackups()}});
+
+/* ---------- Settings / CFG ---------- */
+function rSettings(){const s=S.ov.settings;$('sDb').value=s.dbName;$('sHost').value=s.host;$('sPort').value=s.port;$('sUser').value=s.user;$('sPass').value=s.password;$('sVar').value=s.cfgVar||'mysql_connection_string';$('sAb').value=s.autoBackupMin;$('sKeep').value=s.keepBackups;lineUp();cfgInfo(S.ov.cfg)}
+function lineUp(){const u=encodeURIComponent($('sUser').value),p=encodeURIComponent($('sPass').value);$('sLine').textContent='set '+$('sVar').value+' "mysql://'+u+':'+(showPass?p:'********')+'@'+$('sHost').value+':'+$('sPort').value+'/'+encodeURIComponent($('sDb').value)+'?charset=utf8mb4"'}
+let showPass=false;['sDb','sHost','sPort','sUser','sPass','sVar'].forEach(i=>$(i).oninput=lineUp);
+$('sShow').onclick=()=>{showPass=!showPass;$('sPass').type=showPass?'text':'password';lineUp()};
+$('sGen').onclick=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';const r=crypto.getRandomValues(new Uint8Array(20));$('sPass').value=[...r].map(x=>a[x%a.length]).join('');lineUp()};
+$('sCopy').onclick=()=>navigator.clipboard.writeText($('sPass').value).then(()=>note('Password copied'),()=>note('Copy failed',false));
+function cfgInfo(c){$('sCfgInfo').innerHTML='server.cfg: <code>'+esc(c.file||'(not configured)')+'</code> — '+(c.exists?(c.matches?'<b style="color:#86efac">up to date ✔</b>':(c.hasVar?'<b style="color:#fbbf24">convar present but different — press the button to update</b>':'<b style="color:#f87171">convar not set yet</b>')):'<b style="color:#f87171">file not found</b>')+'<br>Restart the server (or re-run <code>exec</code>) after changing server.cfg so resources read the new value. A backup of the original is kept as <code>server.cfg.dbengine.bak</code>.'}
+async function saveSettings(){const j={dbName:$('sDb').value,host:$('sHost').value,port:$('sPort').value,user:$('sUser').value,password:$('sPass').value,cfgVar:$('sVar').value,autoBackupMin:$('sAb').value,keepBackups:$('sKeep').value};const r=await api('POST','/database/settings',{json:JSON.stringify(j)});if(r.error){note(r.error,false);return false}note('Settings saved');await load(true);cfgInfo(r.cfg);return true}
+$('sSave').onclick=saveSettings;
+async function cfgSetup(){if(S.tab==='settings'&&!await saveSettings())return;const r=await api('POST','/database/cfg',{});if(r.error)return note(r.error,false);
+ note(r.changed?(r.replaced?'server.cfg updated with the database info':'Database info added to server.cfg'):'server.cfg already has this exact database info');await load(true);if(S.tab==='settings')cfgInfo(r.cfg);if(S.tab==='overview')rOverview()}
+$('btnCfg').onclick=cfgSetup;$('sCfg').onclick=cfgSetup;
+$('sFlush').onclick=async()=>{const r=await api('POST','/database/danger',{action:'flush'});note(r.error||'Flushed to disk',!r.error)};
+$('sWipe').onclick=async()=>{const n=S.ov.settings.dbName;if(!await ask('Delete ALL tables and data of “'+n+'”? A backup is created first.',{danger:true,input:n,ok:'Wipe everything'}))return;const r=await api('POST','/database/danger',{action:'wipe',confirm:n});if(r.error)return note(r.error,false);note('Database wiped');await load()};
+
+/* ---------- boot ---------- */
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.db-pop').forEach(p=>p.remove())});
+load();setInterval(()=>{if(!document.hidden&&!document.querySelector('.db-ov,.db-pop'))load(true)},15000);
+})();
+</script>
