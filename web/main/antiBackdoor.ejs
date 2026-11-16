@@ -1,0 +1,74 @@
+<%- await include('parts/header.ejs', locals) %>
+<style>
+.ab-card{background:rgba(124,58,237,.08);border:1px solid rgba(139,92,246,.4);border-radius:12px;padding:16px;margin-bottom:14px}
+.ab-h{display:flex;align-items:center;gap:10px;font-weight:800;color:#d8b4fe;text-shadow:0 0 12px rgba(168,85,247,.65);font-size:1.3rem}
+.ab-stat{display:inline-block;min-width:120px;margin:4px 10px 4px 0;padding:8px 14px;border-radius:10px;background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.4);text-align:center}
+.ab-stat b{display:block;font-size:1.4rem;color:#e9d5ff}
+.ab-tabs button{margin-right:6px}.ab-tab{display:none}.ab-tab.on{display:block}
+.sev{padding:2px 9px;border-radius:999px;font-size:.7rem;font-weight:800;text-transform:uppercase;color:#fff}
+.sev-critical{background:#dc2626;box-shadow:0 0 8px #dc2626}.sev-high{background:#ea580c}.sev-medium{background:#a855f7}.sev-low{background:#4b5563}
+.ab-row{border:1px solid rgba(139,92,246,.3);border-radius:10px;margin-bottom:8px;padding:10px 12px}
+.ab-reason{font-size:.82rem;margin:4px 0 0 8px;padding-left:8px;border-left:3px solid #8b5cf6}
+.ab-reason code{color:#f0abfc;word-break:break-all}
+.ab-set{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed rgba(139,92,246,.25)}
+.ab-set small{display:block;opacity:.7}
+.ab-in{width:90px;background:#1a1330;color:#e9d5ff;border:1px solid #8b5cf6;border-radius:6px;padding:2px 6px}
+textarea.ab-in{width:100%;height:70px}
+</style>
+<div class="ab-card">
+ <div class="ab-h">🛡️ Anti-Backdoor <span class="at-beta">BETA</span></div>
+ <div id="abStats" class="mt-2"></div>
+ <div class="mt-2 ab-tabs">
+  <button class="btn btn-sm btn-at" id="abScanBtn">Scan now</button>
+  <button class="btn btn-sm btn-at" data-tab="results">Results</button>
+  <button class="btn btn-sm btn-at" data-tab="alerts">Alerts</button>
+  <button class="btn btn-sm btn-at" data-tab="settings">Settings</button>
+  <button class="btn btn-sm btn-at" data-tab="rules">Detection Rules</button>
+ </div>
+</div>
+<div class="ab-card ab-tab on" id="tab-results"><div id="abResults">Loading...</div></div>
+<div class="ab-card ab-tab" id="tab-alerts"><div id="abAlerts"></div></div>
+<div class="ab-card ab-tab" id="tab-settings">
+ <div id="abSettings"></div>
+ <button class="btn btn-at mt-3" id="abSave">Save settings</button>
+</div>
+<div class="ab-card ab-tab" id="tab-rules"><div id="abRules"></div><button class="btn btn-at mt-3" id="abSave2">Save rules</button></div>
+<%- await include('parts/footer.ejs', locals) %>
+<script>
+(function(){
+let D=null;const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const api=(type,url,data)=>new Promise(res=>txAdminAPI({type,url,data,success:res,error:()=>res({error:'request failed'})}));
+const sw=(id,v)=>`<label class="c-switch c-switch-sm c-switch-pill c-switch-success"><input class="c-switch-input" type="checkbox" id="${id}" ${v?'checked':''}><span class="c-switch-slider"></span></label>`;
+function setRow(t,d,html){return `<div class="ab-set"><div>${t}<small>${d}</small></div><div>${html}</div></div>`}
+function render(){const S=D.settings;
+ const bad=D.results.filter(r=>r.score>=S.alertThreshold&&!S.whitelist.includes(r.name));
+ document.getElementById('abStats').innerHTML=`<div class="ab-stat"><b>${D.results.length}</b>Resources scanned</div><div class="ab-stat"><b>${D.files}</b>Files scanned</div><div class="ab-stat"><b style="color:${bad.length?'#f87171':'#86efac'}">${bad.length}</b>Suspicious</div><div class="ab-stat"><b>${D.lastScan?new Date(D.lastScan).toLocaleTimeString():'--'}</b>Last scan (${D.lastDuration}ms)</div><div class="ab-stat"><b>${D.scanning?'Scanning...':(S.enabled?'Active':'Disabled')}</b>Status</div>`+(D.serverOnline?'':'<div class="text-warning">Server offline - scanning still works on disk, auto-stop needs server online.</div>');
+ document.getElementById('abResults').innerHTML=D.results.length?D.results.map(r=>{const wl=S.whitelist.includes(r.name);return `<div class="ab-row"><div class="d-flex justify-content-between flex-wrap"><div><strong>${esc(r.name)}</strong> <span class="sev sev-${r.severity}">${r.severity} · ${r.score}</span> ${wl?'<span class="sev sev-low">whitelisted</span>':''}</div><div>${r.score>0?`<button class="btn btn-sm btn-at" data-act="stop" data-n="${esc(r.name)}">Stop</button> <button class="btn btn-sm btn-at" data-act="${wl?'unwhitelist':'whitelist'}" data-n="${esc(r.name)}">${wl?'Remove whitelist':'Mark safe'}</button>`:''}</div></div>${r.reasons.map(x=>`<div class="ab-reason"><b>${esc(x.name)}</b> (+${x.score}) — ${esc(x.desc)}<br><code>${esc(x.file)}:${x.line}</code> <code>${esc(x.snippet)}</code></div>`).join('')}</div>`}).join(''):'No results yet. Press "Scan now".';
+ document.getElementById('abAlerts').innerHTML=(D.alerts.length?'<button class="btn btn-sm btn-at mb-2" data-act="ackall">Dismiss all</button>':'No alerts.')+D.alerts.map(a=>`<div class="ab-row"><span class="sev sev-${a.severity}">${a.severity}</span> <strong>${esc(a.resource)}</strong> score ${a.score} — ${new Date(a.ts).toLocaleString()} ${a.stopped?'<span class="sev sev-high">auto-stopped</span>':''}${a.acked?'':' <span class="sev sev-medium">new</span>'}<div class="ab-reason">${a.reasons.map(esc).join(' · ')}</div></div>`).join('');
+ document.getElementById('abSettings').innerHTML=
+  setRow('Enable Anti-Backdoor','Master switch',sw('s_enabled',S.enabled))+
+  setRow('Scan on server start','Automatically scan every time the server boots',sw('s_scanOnStart',S.scanOnStart))+
+  setRow('Auto-stop suspicious resources','Stop resources reaching the auto-stop score',sw('s_autoStop',S.autoStop))+
+  setRow('Alarm sound','Soft ding when a backdoor is detected',sw('s_sound',S.sound))+
+  setRow('Show in Resources page','Mark suspicious resources with reasons',sw('s_showInResources',S.showInResources))+
+  setRow('Alert threshold','Minimum score to raise an alert',`<input class="ab-in" type="number" id="s_alertThreshold" value="${S.alertThreshold}">`)+
+  setRow('Auto-stop threshold','Minimum score to auto-stop',`<input class="ab-in" type="number" id="s_autoStopThreshold" value="${S.autoStopThreshold}">`)+
+  setRow('Rescan interval (min)','0 = only on start/manual',`<input class="ab-in" type="number" id="s_intervalMin" value="${S.intervalMin}">`)+
+  setRow('Whitelist (trusted resources)','One resource name per line',`<textarea class="ab-in" id="s_whitelist">${esc(S.whitelist.join('\n'))}</textarea>`)+
+  setRow('Ignored (never scanned)','One resource name per line',`<textarea class="ab-in" id="s_ignored">${esc(S.ignored.join('\n'))}</textarea>`);
+ document.getElementById('abRules').innerHTML=D.rules.map(r=>setRow(`${esc(r.name)} <span class="sev sev-medium">+${r.score}</span>`,esc(r.desc),sw('r_'+r.id,S.rules[r.id]))).join('');
+}
+async function load(){const d=await api('GET','/antiBackdoor/data');if(d.error){document.getElementById('abResults').textContent=d.error;return}D=d;render();if(D.scanning)setTimeout(load,1500)}
+function collect(){const g=id=>document.getElementById(id);const lines=id=>g(id).value.split('\n').map(x=>x.trim()).filter(Boolean);
+ const j={rules:{}};['enabled','scanOnStart','autoStop','sound','showInResources'].forEach(k=>j[k]=g('s_'+k).checked);
+ ['alertThreshold','autoStopThreshold','intervalMin'].forEach(k=>j[k]=+g('s_'+k).value);j.whitelist=lines('s_whitelist');j.ignored=lines('s_ignored');
+ D.rules.forEach(r=>j.rules[r.id]=g('r_'+r.id).checked);return j}
+async function save(){const r=await api('POST','/antiBackdoor/settings',{json:JSON.stringify(collect())});$.notify({message:r.ok?'Saved!':(r.error||'Error')},{type:r.ok?'success':'danger'});load()}
+document.getElementById('abSave').onclick=save;document.getElementById('abSave2').onclick=save;
+document.getElementById('abScanBtn').onclick=async()=>{await api('POST','/antiBackdoor/scan',{});setTimeout(load,800)};
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.ab-tab').forEach(t=>t.classList.remove('on'));document.getElementById('tab-'+b.dataset.tab).classList.add('on')});
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+ if(a==='ackall')await api('POST','/antiBackdoor/action',{action:'ack',id:'all'});else{if(a==='stop'&&!confirm('Stop resource '+b.dataset.n+'?'))return;const r=await api('POST','/antiBackdoor/action',{action:a,name:b.dataset.n});if(r.error)$.notify({message:r.error},{type:'danger'})}load()});
+load();
+})();
+</script>
