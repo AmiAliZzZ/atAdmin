@@ -2,7 +2,7 @@
   <h1>⚡ atAdmin</h1>
   <p><strong>An enhanced txAdmin fork — customized for the VMP.ir platform.</strong></p>
   <p>
-    <strong>Anti-Backdoor Protection</strong> · <strong>Advanced Server Logs</strong> · <strong>Resource Monitoring</strong>
+    <strong>Anti-Backdoor Protection</strong> · <strong>Advanced Server Logs</strong> · <strong>Built-in Database (DBEngine)</strong> · <strong>Resource Monitoring</strong>
   </p>
   <p><em>Created and maintained by AmirAliZz</em></p>
 </div>
@@ -13,7 +13,7 @@
 
 **atAdmin** is an enhanced fork of **txAdmin**, built to provide server owners and administrators with a more security-focused and informative management experience on the **VMP.ir platform**.
 
-It keeps the familiar server-management workflow while adding dedicated security and monitoring tools — including an **Anti-Backdoor system** and a redesigned **Advanced Server Log**.
+It keeps the familiar server-management workflow while adding dedicated security and monitoring tools — including an **Anti-Backdoor system**, a redesigned **Advanced Server Log**, and a built-in **Database manager (DBEngine)**.
 
 The goal is simple: make it easier to monitor server activity, review potentially dangerous resources, and manage a server from one place.
 
@@ -48,6 +48,24 @@ Visible filter categories include:
 - Weapons, fire events, and additional server activity categories
 
 The log interface also includes controls for switching between older and newer log views, clearing the console, and enabling or disabling individual event filters.
+
+### 🗄️ DBEngine — Built-in Database *(new)*
+
+**DBEngine** is a database engine built directly into atAdmin. Your server gets a working, MySQL-compatible database without installing MariaDB/MySQL, XAMPP, or any external service — and you can manage it from the same panel.
+
+- **Zero-setup database** — on start, atAdmin opens a MySQL-protocol server (default `127.0.0.1:3306`, database `dbengine`, user `dbadmin`). `oxmysql` and other MySQL clients connect to it exactly like a normal MySQL server.
+- **One-click server.cfg setup** — the **Automatic CFG Setup DB** button writes the `mysql_connection_string` line into your `server.cfg` (a backup of the original is kept as `server.cfg.dbengine.bak`).
+- **Live statistics** — tables, rows, size on disk, query count, average time per query, errors, uptime, and online status at a glance.
+- **Table browser** — browse rows with pagination and search, add / edit (double-click a cell) / delete rows, and open the table structure.
+- **SQL Console** — run your own SQL queries and scripts directly from the panel.
+- **Structure tools** — create tables, view columns and indexes, and drop or empty tables.
+- **Import & Export** — import SQL / JSON / CSV and export your data (SQL, JSON, CSV).
+- **Backups** — create and restore backups, with optional automatic backups on a schedule.
+- **Settings** — change the database name, host, port, user, and password from the panel.
+- **Connection status in the console** — at the end of the server console atAdmin prints the database state: **green** when connected, **red with the exact error** when it is not. The `dbstatus` console command re-checks on demand.
+- **Safe by default** — it only listens on `127.0.0.1` and requires the configured username and password.
+
+> **Good to know:** DBEngine implements the commonly used part of SQL/MySQL (tables, indexes, joins, transactions, prepared statements, `ON DUPLICATE KEY`, `INFORMATION_SCHEMA`, and more). It is ideal for small and medium servers. If a script needs an unsupported SQL feature, the error is shown clearly in the console. Very large or heavy-traffic servers should still use a dedicated MySQL/MariaDB server — just point `mysql_connection_string` to it and set a different port (or stop DBEngine's listener) if both would run on the same machine.
 
 ### 📊 Server Dashboard & Monitoring
 
@@ -89,6 +107,16 @@ For platform-specific deployment restrictions, file access, or port configuratio
 ### Advanced Server Log
 
 ![atAdmin Advanced Server Log](assets/advanced-server-log.jpg)
+
+### Database — DBEngine
+
+**Overview** — all tables with rows, columns, indexes, next ID, and size, plus quick actions (Browse, Structure, Export, Empty, Drop).
+
+![atAdmin Database overview](assets/database-overview.png)
+
+**Browser** — browse, search, add, edit, and delete rows of any table.
+
+![atAdmin Database browser](assets/database-browser.png)
 
 ---
 
@@ -152,6 +180,7 @@ For a remote server, use the address and port made available by VMP.ir. The port
 - Open **Anti-Backdoor** and run a scan. Review the results instead of automatically trusting or dismissing every finding.
 - Open **Server Log** and confirm that live events appear and that the filters work as expected.
 - Open **Resources** and verify that your resources are listed and can be managed.
+- Open **Database**, press **Automatic CFG Setup DB** (if you want to use the built-in database), restart the server, and check that the console ends with a green **Database Status: CONNECTED** line.
 - Check the dashboard and confirm that the displayed server status and monitoring information are updating.
 
 ### Updating atAdmin
